@@ -43,18 +43,18 @@ export class ConnectionsProvider implements vscode.TreeDataProvider<ConnectionIt
 
       item.description = `${conn.endpoint}:${conn.port}`;
 
-      // ✅ assign contextValue dynamically
+      // assign contextValue dynamically
       item.contextValue = conn.status ?? "idle";
 
       switch (conn.status) {
         case "connected":
           item.iconPath = new vscode.ThemeIcon(
-            "plug-connected",
+            "database",
             new vscode.ThemeColor("charts.green")
           );
           break;
         case "connecting":
-          item.iconPath = new vscode.ThemeIcon("loading~spin");
+          item.iconPath = new vscode.ThemeIcon("loading");
           break;
         case "error":
           item.iconPath = new vscode.ThemeIcon(
@@ -66,6 +66,23 @@ export class ConnectionsProvider implements vscode.TreeDataProvider<ConnectionIt
           item.iconPath = new vscode.ThemeIcon("database");
           break;
       }
+
+      // Set tooltip to show detailed info about the connection when hovering
+      item.tooltip = new vscode.MarkdownString(
+        `**Connection Name: ${conn.name}**\n\n` +
+          `**Endpoint:** ${conn.endpoint}:${conn.port}\n\n` +
+          (conn.namespace ? `**Namespace:** ${conn.namespace}\n\n` : "") +
+          (conn.user ? `**User:** ${conn.user}\n\n` : "") +
+          (conn.description
+            ? `**Description:** ${conn.description}\n\n`
+            : "") +
+          `**Status:** ${conn.status ?? "idle"}`
+      );
+
+      // Enable markdown formatting
+      item.tooltip.supportHtml = false;
+      item.tooltip.isTrusted = false;
+
     }
 
     return item;
