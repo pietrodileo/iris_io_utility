@@ -1,14 +1,5 @@
 import * as vscode from "vscode";
-
-export interface ConnectionData {
-  name: string;
-  endpoint: string;
-  port: number;
-  namespace: string;
-  user: string;
-  password: string;
-  description: string;
-}
+import type { ConnectionData } from "../models/baseConnection";
 
 /**
  * Handles user input for connection details

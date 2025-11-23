@@ -1,6 +1,7 @@
 const irisnative = require("@intersystems/intersystems-iris-native");
-import type { IrisConnectionConfig } from "./irisConnectionConfig";
+import type { IrisConnectionConfig } from "./models/irisConnectionConfig";
 
+/* Class to manage connection to InterSystems IRIS */
 export class IrisConnector {
   private connection: any;
   private iris: any;

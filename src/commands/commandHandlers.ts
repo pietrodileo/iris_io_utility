@@ -167,7 +167,7 @@ export class CommandHandlers {
                   this.connectionsProvider.updateConnection(connection);
                   vscode.window
                     .showErrorMessage(
-                      `❌ Failed to connect to "${connection.name}"! Test failed.`,
+                      `Failed to connect to "${connection.name}"! Test failed.`,
                       "Show Output"
                     )
                     .then((selection) => {
@@ -182,7 +182,7 @@ export class CommandHandlers {
                 this.connectionsProvider.updateConnection(connection);
                 vscode.window
                   .showErrorMessage(
-                    `❌ Failed to connect to "${connection.name}": ${error.message}`,
+                    `Failed to connect to "${connection.name}": ${error.message}`,
                     "Show Output"
                   )
                   .then((selection) => {
