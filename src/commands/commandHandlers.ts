@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { ConnectionsProvider, Connection } from "../connectionsProvider";
+import { Connection } from "../models/baseConnection";
+import { ConnectionsProvider } from "../providers/connectionsProvider";
 import { ConnectionManager } from "../connectionManager";
 import { ConnectionInputs } from "./connectionInputs";
 import { TableTransferWebview } from "../webviews/tableTransferWebview";
@@ -8,9 +9,6 @@ import { TableTransferWebview } from "../webviews/tableTransferWebview";
  * Handles all command registrations
  */
 export class CommandHandlers {
-  private importWebview: TableTransferWebview | undefined;
-  private exportWebview: TableTransferWebview | undefined;
-
   constructor(
     private context: vscode.ExtensionContext,
     private connectionsProvider: ConnectionsProvider,
@@ -27,6 +25,8 @@ export class CommandHandlers {
     this.registerDeleteConnection();
     this.registerConnectToIris();
     this.registerDisconnectFromIris();
+    this.registerAddFavorite();
+    this.registerRemoveFavorite();
     this.registerImportTables();
     this.registerExportTables();
   }
@@ -229,6 +229,47 @@ export class CommandHandlers {
     );
   }
 
+  private registerAddFavorite(): void {
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand(
+        "irisIO.addFavorite",
+        async (item: any) => {
+          if (!item?.connection) {
+            vscode.window.showErrorMessage("Invalid connection item");
+            return;
+          }
+
+          const connection = item.connection;
+          this.connectionsProvider.addFavorite(connection.id);
+          vscode.window.showInformationMessage(
+            `Added "${connection.name}" to favorites ⭐`
+          );
+        }
+      )
+    );
+  }
+
+  private registerRemoveFavorite(): void {
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand(
+        "irisIO.removeFavorite",
+        async (item: any) => {
+          if (!item?.connection) {
+            vscode.window.showErrorMessage("Invalid connection item");
+            return;
+          }
+
+          const connection = item.connection;
+          this.connectionsProvider.removeFavorite(connection.id);
+          vscode.window.showInformationMessage(
+            `Removed "${connection.name}" from favorites`
+          );
+        }
+      )
+    );
+  }
+
+  /* ================== Table Import/Export ==================== */
   private tableWebviews: Map<string, TableTransferWebview> = new Map();
 
   private openTableWebview(connection: Connection, mode: "import" | "export") {

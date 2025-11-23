@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { ConnectionsProvider } from "./connectionsProvider";
+import { ConnectionsProvider } from "./providers/connectionsProvider";
+import { FavoritesProvider } from "./providers/favoritesProvider";
 import { ConnectionManager } from "./connectionManager";
 import { CommandHandlers } from "./commands/commandHandlers";
 
@@ -7,8 +8,6 @@ let connectionManager: ConnectionManager;
 let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("IRIS IO Utility is now active");
-
   // Create output channel for logging
   outputChannel = vscode.window.createOutputChannel("IRIS IO Utility");
   context.subscriptions.push(outputChannel);
@@ -18,10 +17,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Initialize connections provider
   const connectionsProvider = new ConnectionsProvider(context);
-  vscode.window.registerTreeDataProvider(
-    "irisIOConnections",
-    connectionsProvider
-  );
+  vscode.window.registerTreeDataProvider("irisIOConnections",connectionsProvider);
+
+  // Initialize favorites provider
+  const favoritesProvider = new FavoritesProvider(connectionsProvider);
+  vscode.window.registerTreeDataProvider("irisIOFavorites", favoritesProvider);
 
   // Register all commands
   const commandHandlers = new CommandHandlers(

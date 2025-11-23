@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { IrisConnector } from "./iris/irisConnector";
-import { Connection } from "./connectionsProvider";
+import { Connection } from "./models/baseConnection";
 
 /**
  * Manages active IRIS connections
@@ -59,7 +59,7 @@ export class ConnectionManager {
       this.log(`Config: ${JSON.stringify({ ...config, pwd: "***" })}`);
 
       await connector.connect(config);
-      this.log(`✓ Connection established successfully`);
+      this.log(`Connection established successfully`);
 
       this.log(`Testing connection...`);
       const testResult = await connector.test();
@@ -67,15 +67,15 @@ export class ConnectionManager {
 
       if (testResult) {
         this.activeConnections.set(connection.id, connector);
-        this.log(`✅ Successfully connected!`);
+        this.log(`Successfully connected!`);
         return true;
       } else {
         connector.close();
-        this.log(`❌ Connection test failed`);
+        this.log(`Connection test failed`);
         return false;
       }
     } catch (error: any) {
-      this.log(`❌ Error: ${error.message || "Unknown error"}`);
+      this.log(`Error: ${error.message || "Unknown error"}`);
       this.log(`Stack trace: ${error.stack || "No stack trace"}`);
       throw error;
     }

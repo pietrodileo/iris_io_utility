@@ -25,9 +25,11 @@
       "iris-io-container": [
         {
           "id": "irisIOConnections",
-          "name": "CONNECTIONS",
-          "visibility": "visible",
-          "icon": "src/resources/icon.svg"
+          "name": "Connections"
+        },
+        {
+          "id": "irisIOFavorites",
+          "name": "Favorites"
         }
       ]
     },
@@ -35,6 +37,10 @@
       {
         "view": "irisIOConnections",
         "contents": "No connections configured yet.\n[Add New Connection](command:irisIO.addConnection)\nYou can add IRIS database connections to quickly access your instances.\n\nConnections are saved per workspace and will persist across sessions."
+      },
+      {
+        "view": "irisIOFavorites",
+        "contents": "No favorite tables yet.\n\nYou can add tables to your favorites for quick access.\n\nTo add a table to your favorites, click on the 'Add to Favorites' icon of a connection item."
       }
     ],
     "commands": [
@@ -72,6 +78,16 @@
         "command": "irisIO.exportTables",
         "title": "Export Tables",
         "icon": "$(cloud-download)"
+      },
+      {
+        "command": "irisIO.addFavorite",
+        "title": "Add to Favorites",
+        "icon": "$(star-full)"
+      },
+      {
+        "command": "irisIO.removeFavorite",
+        "title": "Remove from Favorites",
+        "icon": "$(star-empty)"
       }
     ],
     "menus": {
@@ -85,38 +101,53 @@
       "view/item/context": [
         {
           "command": "irisIO.connectToIris",
-          "when": "view == irisIOConnections && viewItem == idle",
+          "when": "(view == irisIOConnections || view == irisIOFavorites) && viewItem =~ /^idle/",
           "group": "inline@1"
         },
         {
           "command": "irisIO.connectToIris",
-          "when": "view == irisIOConnections && viewItem == error",
+          "when": "(view == irisIOConnections || view == irisIOFavorites) && viewItem =~ /^error/",
           "group": "inline@1"
         },
         {
           "command": "irisIO.disconnectFromIris",
-          "when": "view == irisIOConnections && viewItem == connected",
+          "when": "(view == irisIOConnections || view == irisIOFavorites) && viewItem =~ /^connected/",
           "group": "inline@1"
         },
         {
           "command": "irisIO.editConnection",
-          "when": "view == irisIOConnections",
+          "when": "(view == irisIOConnections || view == irisIOFavorites)",
           "group": "inline@2"
         },
         {
           "command": "irisIO.deleteConnection",
-          "when": "view == irisIOConnections",
+          "when": "(view == irisIOConnections || view == irisIOFavorites)",
           "group": "inline@3"
         },
         {
           "command": "irisIO.importTables",
-          "when": "view == irisIOConnections && viewItem == connected",
+          "when": "(view == irisIOConnections || view == irisIOFavorites) && viewItem =~ /^connected/",
           "group": "inline@4"
         },
         {
           "command": "irisIO.exportTables",
-          "when": "view == irisIOConnections && viewItem == connected",
+          "when": "(view == irisIOConnections || view == irisIOFavorites) && viewItem =~ /^connected/",
           "group": "inline@5"
+        },
+        {
+          "command": "irisIO.addFavorite",
+          "when": "view == irisIOConnections && viewItemStatus != favorite",
+          "group": "inline@3"
+        },
+        {
+          "command": "irisIO.removeFavorite",
+          "when": "view == irisIOFavorites && viewItemStatus == favorite",
+          "group": "inline@3"
+        },
+        {
+          "command": "irisIO.removeFavorite",
+          "when": "view == irisIOFavorites",
+          "group": "inline@1"
         }
       ]
     }

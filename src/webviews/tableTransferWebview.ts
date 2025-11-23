@@ -1,6 +1,6 @@
 // TableTransferWebview.ts
 import * as vscode from "vscode";
-import { Connection } from "../connectionsProvider";
+import { Connection } from "../models/baseConnection";
 
 export class TableTransferWebview {
   private panel?: vscode.WebviewPanel;
