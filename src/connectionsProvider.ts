@@ -13,9 +13,7 @@ export interface Connection {
   errorMessage?: string;
 }
 
-export class ConnectionsProvider
-  implements vscode.TreeDataProvider<ConnectionItem>
-{
+export class ConnectionsProvider implements vscode.TreeDataProvider<ConnectionItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<
     ConnectionItem | undefined | null | void
   > = new vscode.EventEmitter<ConnectionItem | undefined | null | void>();
@@ -35,7 +33,42 @@ export class ConnectionsProvider
   }
 
   getTreeItem(element: ConnectionItem): vscode.TreeItem {
-    return element;
+    const item = new vscode.TreeItem(
+      element.connection?.name || element.label,
+      vscode.TreeItemCollapsibleState.None
+    );
+
+    if (element.connection) {
+      const conn = element.connection;
+
+      item.description = `${conn.endpoint}:${conn.port}`;
+
+      // ✅ assign contextValue dynamically
+      item.contextValue = conn.status ?? "idle";
+
+      switch (conn.status) {
+        case "connected":
+          item.iconPath = new vscode.ThemeIcon(
+            "plug-connected",
+            new vscode.ThemeColor("charts.green")
+          );
+          break;
+        case "connecting":
+          item.iconPath = new vscode.ThemeIcon("loading~spin");
+          break;
+        case "error":
+          item.iconPath = new vscode.ThemeIcon(
+            "error",
+            new vscode.ThemeColor("charts.red")
+          );
+          break;
+        default:
+          item.iconPath = new vscode.ThemeIcon("database");
+          break;
+      }
+    }
+
+    return item;
   }
 
   getChildren(element?: ConnectionItem): Thenable<ConnectionItem[]> {
@@ -56,7 +89,7 @@ export class ConnectionsProvider
               conn.name,
               `${conn.endpoint}:${conn.port}`,
               vscode.TreeItemCollapsibleState.None,
-              "connection",
+              conn.status ?? "idle", // ✅ contextValue now matches status
               conn
             )
         )
@@ -70,7 +103,12 @@ export class ConnectionsProvider
       this.STORAGE_KEY
     );
     if (stored) {
-      this.connections = stored;
+      // Reset all connections to 'idle' status when loading
+      this.connections = stored.map((conn) => ({
+        ...conn,
+        status: "idle",
+        errorMessage: undefined,
+      }));
     }
   }
 
@@ -92,7 +130,8 @@ export class ConnectionsProvider
       (c) => c.id === updatedConnection.id
     );
     if (index !== -1) {
-      this.connections[index] = updatedConnection;
+      // Create a new object to ensure proper change detection
+      this.connections[index] = { ...updatedConnection };
       this.saveConnections();
     }
   }
@@ -114,27 +153,5 @@ class ConnectionItem extends vscode.TreeItem {
   ) {
     super(label, collapsibleState);
     this.description = description;
-
-    // Set tooltip for connections to show description
-    if (contextValue === "connection" && connection) {
-      this.tooltip = connection.description
-        ? `${connection.name}\n${connection.endpoint}:${connection.port}\n\n${connection.description}`
-        : `${connection.name}\n${connection.endpoint}:${connection.port}`;
-
-      // Database icon for connections
-      this.iconPath = new vscode.ThemeIcon(getIcon(connection.status));
-    }
-  }
-}
-function getIcon(status?: string): string {
-  switch (status) {
-    case "connecting":
-      return "sync~spin"; // spinning
-    case "connected":
-      return "check";
-    case "error":
-      return "error";
-    default:
-      return "database";
   }
 }

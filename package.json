@@ -77,24 +77,29 @@
       ],
       "view/item/context": [
         {
-          "command": "irisIO.testConnection",
-          "when": "view == irisIOConnections && viewItem == connection",
+          "command": "irisIO.connectToIris",
+          "when": "view == irisIOConnections && viewItem == idle",
           "group": "inline@1"
         },
         {
           "command": "irisIO.connectToIris",
-          "when": "view == irisIOConnections && viewItem == connection",
-          "group": "inline@2"
+          "when": "view == irisIOConnections && viewItem == error",
+          "group": "inline@1"
+        },
+        {
+          "command": "irisIO.disconnectFromIris",
+          "when": "view == irisIOConnections && viewItem == connected",
+          "group": "inline@1"
         },
         {
           "command": "irisIO.editConnection",
-          "when": "view == irisIOConnections && viewItem == connection",
-          "group": "inline@3"
+          "when": "view == irisIOConnections",
+          "group": "inline@2"
         },
         {
           "command": "irisIO.deleteConnection",
-          "when": "view == irisIOConnections && viewItem == connection",
-          "group": "inline@4"
+          "when": "view == irisIOConnections",
+          "group": "inline@3"
         }
       ]
     }
