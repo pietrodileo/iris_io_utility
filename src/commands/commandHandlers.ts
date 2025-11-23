@@ -2,11 +2,15 @@ import * as vscode from "vscode";
 import { ConnectionsProvider, Connection } from "../connectionsProvider";
 import { ConnectionManager } from "../connectionManager";
 import { ConnectionInputs } from "./connectionInputs";
+import { TableTransferWebview } from "../webviews/tableTransferWebview";
 
 /**
  * Handles all command registrations
  */
 export class CommandHandlers {
+  private importWebview: TableTransferWebview | undefined;
+  private exportWebview: TableTransferWebview | undefined;
+
   constructor(
     private context: vscode.ExtensionContext,
     private connectionsProvider: ConnectionsProvider,
@@ -23,7 +27,8 @@ export class CommandHandlers {
     this.registerDeleteConnection();
     this.registerConnectToIris();
     this.registerDisconnectFromIris();
-    this.registerOpenConnection();
+    this.registerImportTables();
+    this.registerExportTables();
   }
 
   private registerAddConnection(): void {
@@ -224,82 +229,62 @@ export class CommandHandlers {
     );
   }
 
-  private registerOpenConnection(): void {
+  private tableWebviews: Map<string, TableTransferWebview> = new Map();
+
+  private openTableWebview(connection: Connection, mode: "import" | "export") {
+    if (!connection) {
+      vscode.window.showErrorMessage("Invalid connection");
+      return;
+    }
+
+    if (!this.connectionManager.isConnected(connection.id)) {
+      vscode.window.showWarningMessage(
+        `Connection "${connection.name}" is not active. Please connect first.`
+      );
+      return;
+    }
+
+    const key = `${connection.id}-${mode}`;
+
+    let webview = this.tableWebviews.get(key);
+    if (!webview) {
+      webview = new TableTransferWebview();
+      this.tableWebviews.set(key, webview);
+
+      // When the panel is closed, remove it from the map
+      webview.onDidDispose(() => {
+        this.tableWebviews.delete(key);
+      });
+    }
+
+    webview.open(connection, mode);
+  }
+
+  private registerImportTables(): void {
     this.context.subscriptions.push(
       vscode.commands.registerCommand(
-        "irisIO.openConnection",
-        async (connection: Connection) => {
-          if (!connection) {
-            vscode.window.showErrorMessage("Invalid connection");
+        "irisIO.importTables",
+        async (item: any) => {
+          if (!item?.connection) {
+            vscode.window.showErrorMessage("Invalid connection item");
             return;
           }
+          this.openTableWebview(item.connection, "import");
+        }
+      )
+    );
+  }
 
-          this.connectionManager.logSeparator();
-          this.outputChannel.appendLine(
-            `Opening connection: ${connection.name}`
-          );
-
-          // Check if connection is active
-          if (!this.connectionManager.isConnected(connection.id)) {
-            vscode.window.showWarningMessage(
-              `Connection "${connection.name}" is not active. Please connect first.`
-            );
+  private registerExportTables(): void {
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand(
+        "irisIO.exportTables",
+        async (item: any) => {
+          if (!item?.connection) {
+            vscode.window.showErrorMessage("Invalid connection item");
             return;
           }
-
-          const connector = this.connectionManager.getConnector(connection.id);
-          if (!connector) {
-            vscode.window.showErrorMessage(
-              `Could not retrieve connector for "${connection.name}"`
-            );
-            return;
-          }
-
-          try {
-            const content = `# IRIS Connection: ${connection.name}
-
-## Connection Details
-- **Endpoint**: ${connection.endpoint}:${connection.port}
-- **Namespace**: ${connection.namespace}
-- **User**: ${connection.user}
-- **Status**: Connected ✅
-
-## Description
-${connection.description || "No description provided"}
-
----
-
-*This is a placeholder for your IRIS connection interface.*
-*You can extend this to show globals, classes, queries, etc.*
-
-## Quick Actions
-- View Globals
-- Execute ObjectScript
-- Browse Classes
-- Run SQL Queries
-`;
-
-            const document = await vscode.workspace.openTextDocument({
-              content: content,
-              language: "markdown",
-            });
-
-            await vscode.window.showTextDocument(document, {
-              preview: false,
-              viewColumn: vscode.ViewColumn.Active,
-            });
-
-            this.outputChannel.appendLine(
-              `✓ Opened tab for connection: ${connection.name}`
-            );
-          } catch (error: any) {
-            this.outputChannel.appendLine(
-              `❌ Error opening connection tab: ${error.message}`
-            );
-            vscode.window.showErrorMessage(
-              `Failed to open connection: ${error.message}`
-            );
-          }
+          this.openTableWebview(item.connection, "export");
         }
       )
     );

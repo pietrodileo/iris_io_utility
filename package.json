@@ -26,7 +26,8 @@
         {
           "id": "irisIOConnections",
           "name": "CONNECTIONS",
-          "visibility": "visible"
+          "visibility": "visible",
+          "icon": "src/resources/icon.svg"
         }
       ]
     },
@@ -63,8 +64,14 @@
         "icon": "$(debug-disconnect)"
       },
       {
-        "command": "irisIO.openConnection",
-        "title": "Open Connection"
+        "command": "irisIO.importTables",
+        "title": "Import Tables",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "irisIO.exportTables",
+        "title": "Export Tables",
+        "icon": "$(cloud-download)"
       }
     ],
     "menus": {
@@ -100,6 +107,16 @@
           "command": "irisIO.deleteConnection",
           "when": "view == irisIOConnections",
           "group": "inline@3"
+        },
+        {
+          "command": "irisIO.importTables",
+          "when": "view == irisIOConnections && viewItem == connected",
+          "group": "inline@4"
+        },
+        {
+          "command": "irisIO.exportTables",
+          "when": "view == irisIOConnections && viewItem == connected",
+          "group": "inline@5"
         }
       ]
     }
