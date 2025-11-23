@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import { IrisConnector } from "./iris/irisConnector";
-import { Connection } from "./models/baseConnection";
+import { IrisConnector } from "./irisConnector";
+import { Connection } from "../models/baseConnection";
 
 /**
  * Manages active IRIS connections

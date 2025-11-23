@@ -1,10 +1,12 @@
 import * as vscode from "vscode";
 import { ConnectionsProvider } from "./providers/connectionsProvider";
 import { FavoritesProvider } from "./providers/favoritesProvider";
-import { ConnectionManager } from "./connectionManager";
+import { ConnectionManager } from "./iris/connectionManager";
 import { CommandHandlers } from "./commands/commandHandlers";
+import { WebviewManager } from "./webviews/webViewManager";
 
 let connectionManager: ConnectionManager;
+let webviewManager: WebviewManager;
 let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
@@ -14,6 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Initialize connection manager
   connectionManager = new ConnectionManager(outputChannel);
+  webviewManager = new WebviewManager(context);
 
   // Initialize connections provider
   const connectionsProvider = new ConnectionsProvider(context);
@@ -28,7 +31,8 @@ export function activate(context: vscode.ExtensionContext) {
     context,
     connectionsProvider,
     connectionManager,
-    outputChannel
+    outputChannel,
+    webviewManager
   );
   commandHandlers.registerAll();
 }

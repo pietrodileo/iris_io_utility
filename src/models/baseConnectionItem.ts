@@ -14,7 +14,7 @@ export abstract class BaseConnectionItem extends vscode.TreeItem {
   ) {
     super(connection.name, collapsibleState);
 
-    this.description = `${connection.endpoint}:${connection.port}`;
+    this.description = `${connection.endpoint}:${connection.port}/${connection.namespace}`;
     this.iconPath = this.getIconForStatus(connection.status);
     this.tooltip = this.buildTooltip(connection);
 

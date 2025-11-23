@@ -1,9 +1,12 @@
 import * as vscode from "vscode";
 import { Connection } from "../models/baseConnection";
 import { ConnectionsProvider } from "../providers/connectionsProvider";
-import { ConnectionManager } from "../connectionManager";
+import { ConnectionManager } from "../iris/connectionManager";
 import { ConnectionInputs } from "./connectionInputs";
 import { TableTransferWebview } from "../webviews/tableTransferWebview";
+import { ImportWebview } from "../webviews/importWebView";
+import { ExportWebview } from "../webviews/exportWebView";
+import { WebviewManager } from "../webviews/webViewManager";
 
 /**
  * Handles all command registrations
@@ -13,7 +16,8 @@ export class CommandHandlers {
     private context: vscode.ExtensionContext,
     private connectionsProvider: ConnectionsProvider,
     private connectionManager: ConnectionManager,
-    private outputChannel: vscode.OutputChannel
+    private outputChannel: vscode.OutputChannel,
+    private webviewManager: WebviewManager
   ) {}
 
   /**
@@ -158,9 +162,9 @@ export class CommandHandlers {
                   connection.status = "connected";
                   connection.errorMessage = undefined;
                   this.connectionsProvider.updateConnection(connection);
-                  vscode.window.showInformationMessage(
-                    `✅ Connected to "${connection.name}"!`
-                  );
+                  // vscode.window.showInformationMessage(
+                  //   `Connected to "${connection.name}"!`
+                  // );
                 } else {
                   connection.status = "error";
                   connection.errorMessage = "Connection test failed";
@@ -211,9 +215,9 @@ export class CommandHandlers {
           const connection = { ...item.connection } as Connection;
 
           if (!this.connectionManager.isConnected(connection.id)) {
-            vscode.window.showInformationMessage(
-              `Not connected to "${connection.name}"`
-            );
+            // vscode.window.showInformationMessage(
+            //   `Not connected to "${connection.name}"`
+            // );
             return;
           }
 
@@ -239,11 +243,17 @@ export class CommandHandlers {
             vscode.window.showErrorMessage("Invalid connection item");
             return;
           }
-
           const connection = item.connection;
+          // Check if already a favorite
+          if (this.connectionsProvider.isFavorite(connection.id)) {
+            vscode.window.showInformationMessage(
+              `"${connection.name}" is already a favorite`
+            );
+            return;
+          }
           this.connectionsProvider.addFavorite(connection.id);
           vscode.window.showInformationMessage(
-            `Added "${connection.name}" to favorites ⭐`
+            `Added "${connection.name}" to favorites`
           );
         }
       )
@@ -304,29 +314,27 @@ export class CommandHandlers {
 
   private registerImportTables(): void {
     this.context.subscriptions.push(
-      vscode.commands.registerCommand(
-        "irisIO.importTables",
-        async (item: any) => {
-          if (!item?.connection) {
-            vscode.window.showErrorMessage("Invalid connection item");
-            return;
-          }
-          this.openTableWebview(item.connection, "import");
+      vscode.commands.registerCommand("irisIO.importTables",async (item: any) => {
+        if (!item?.connection) {
+          vscode.window.showErrorMessage("Invalid connection item");
+          return;
         }
-      )
+
+        const connection = item.connection;
+        this.webviewManager.show(connection, "import");
+      })
     );
   }
 
   private registerExportTables(): void {
     this.context.subscriptions.push(
-      vscode.commands.registerCommand(
-        "irisIO.exportTables",
-        async (item: any) => {
+      vscode.commands.registerCommand("irisIO.exportTables",async (item: any) => {
           if (!item?.connection) {
             vscode.window.showErrorMessage("Invalid connection item");
             return;
           }
-          this.openTableWebview(item.connection, "export");
+          const connection = item.connection;
+          this.openTableWebview(connection, "export");
         }
       )
     );
