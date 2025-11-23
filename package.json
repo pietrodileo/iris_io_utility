@@ -88,6 +88,11 @@
         "command": "irisIO.removeFavorite",
         "title": "Remove from Favorites",
         "icon": "$(star-empty)"
+      },
+      {
+        "command": "irisIO.copyConnectionInfo",
+        "title": "Copy Connection Info",
+        "icon": "$(copy)"
       }
     ],
     "menus": {
@@ -148,6 +153,11 @@
           "command": "irisIO.removeFavorite",
           "when": "view == irisIOFavorites",
           "group": "inline@1"
+        },
+        {
+          "command": "irisIO.copyConnectionInfo",
+          "when": "view == irisIOConnections || view == irisIOFavorites",
+          "group": "9_cutcopypaste"
         }
       ]
     }

@@ -29,6 +29,7 @@ export class CommandHandlers {
     this.registerRemoveFavorite();
     this.registerImportTables();
     this.registerExportTables();
+    this.registerCopyConnectionInfo();
   }
 
   private registerAddConnection(): void {
@@ -326,6 +327,52 @@ export class CommandHandlers {
             return;
           }
           this.openTableWebview(item.connection, "export");
+        }
+      )
+    );
+  }
+
+  private registerCopyConnectionInfo(): void {
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand(
+        "irisIO.copyConnectionInfo",
+        async (item: any) => {
+          if (!item?.connection) {
+            vscode.window.showErrorMessage("Invalid connection item");
+            return;
+          }
+
+          const connection = item.connection as Connection;
+
+          // Build connection info text
+          const info = [
+            `Connection: ${connection.name}`,
+            `Endpoint: ${connection.endpoint}:${connection.port}`,
+            `Namespace: ${connection.namespace}`,
+            `User: ${connection.user}`,
+            connection.description
+              ? `Description: ${connection.description}`
+              : null,
+            `Status: ${connection.status || "idle"}`,
+            connection.errorMessage
+              ? `Error: ${connection.errorMessage}`
+              : null,
+          ]
+            .filter(Boolean) // Remove null entries
+            .join("\n");
+
+          // Copy to clipboard
+          await vscode.env.clipboard.writeText(info);
+
+          vscode.window.showInformationMessage(
+            `Copied connection info for "${connection.name}" to clipboard`
+          );
+
+          this.outputChannel.appendLine(`\n${"=".repeat(60)}`);
+          this.outputChannel.appendLine(
+            `[${new Date().toISOString()}] Copied connection info to clipboard`
+          );
+          this.outputChannel.appendLine(info);
         }
       )
     );
