@@ -1,0 +1,48 @@
+<div class="container">
+  <div class="header">
+    <h1>Import Data</h1>
+    <div class="connection-info">
+      Connected to: {{connectionName}} ({{connectionEndpoint}}:{{connectionPort}} - Namespace: {{connectionNamespace}})
+    </div>
+  </div>
+
+  <div class="info-message">
+    Select a file (CSV, JSON, TXT, or Excel) to import into an IRIS table.
+  </div>
+
+  <div class="form-group">
+    <label for="file-path">File to Import *</label>
+    <div class="file-input-wrapper">
+      <input type="text" id="file-path" placeholder="Select a file..." readonly required />
+      <button type="button" id="browse-btn">Browse...</button>
+    </div>
+    <small class="field-hint">
+      Supported formats: CSV, JSON, TXT, XLSX, XLS
+    </small>
+  </div>
+
+  <div class="form-group">
+    <label for="schema">Target Schema *</label>
+    <input type="text" id="schema" placeholder="e.g., SQLUser" required />
+    <small class="field-hint">
+      The schema where the table will be created or updated
+    </small>
+  </div>
+
+  <div class="form-group">
+    <label for="table">Target Table Name *</label>
+    <input type="text" id="table" placeholder="e.g., MyTable" required />
+    <small class="field-hint">
+      The table name to import data into
+    </small>
+  </div>
+
+  <div class="button-group">
+    <button type="button" id="import-btn">Import Data</button>
+    <button type="button" id="cancel-btn" class="secondary">Cancel</button>
+  </div>
+
+  <div class="loading">
+    <p>Importing data...</p>
+  </div>
+</div>

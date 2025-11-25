@@ -1,4 +1,4 @@
-// TableTransferWebview.ts
+// TableTransferWebview.ts -- to be removed
 import * as vscode from "vscode";
 import { Connection } from "../models/baseConnection";
 

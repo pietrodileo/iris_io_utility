@@ -1,16 +1,21 @@
 import * as vscode from "vscode";
 import { BaseWebview } from "../models/baseWebView";
 import { Connection } from "../models/baseConnection";
+import { ConnectionManager } from "../iris/connectionManager";
+import * as path from "path";
+import * as fs from "fs";
 
 /**
  * Webview for importing data into IRIS
  */
 export class ImportWebview extends BaseWebview {
   constructor(
-    context: vscode.ExtensionContext,
-    connection: Connection
+    context: vscode.ExtensionContext, 
+    connection: Connection, 
+    connectionManager: ConnectionManager,
+    outputChannel: vscode.OutputChannel
   ) {
-    super(context, connection, "import");
+    super(context, connection, connectionManager, "import", outputChannel);
   }
 
   protected getTitle(): string {
@@ -18,58 +23,43 @@ export class ImportWebview extends BaseWebview {
   }
 
   protected getBodyContent(): string {
+    const htmlPath = path.join(
+      this.context.extensionPath,
+      "src",
+      "webviews",
+      "import",
+      "import.html"
+    );
+    const cssPath = path.join(
+      this.context.extensionPath,
+      "src",
+      "webviews",
+      "import",
+      "import.css"
+    );
+    const jsPath = path.join(
+      this.context.extensionPath,
+      "src",
+      "webviews",
+      "import",
+      "import.js"
+    );
+
+    const html = fs.readFileSync(htmlPath, "utf8");
+    const css = fs.readFileSync(cssPath, "utf8");
+
+    // Replace placeholders with actual connection data
+    const processedHtml = html
+      .replace("{{connectionName}}", this.connection.name)
+      .replace("{{connectionEndpoint}}", this.connection.endpoint)
+      .replace("{{connectionPort}}", this.connection.port.toString())
+      .replace("{{connectionNamespace}}", this.connection.namespace);
+
     return `
-      <div class="container">
-        <div class="header">
-          <h1>Import Data</h1>
-          <div class="connection-info">
-            Connected to: ${this.connection.name} (${this.connection.endpoint}:${this.connection.port} - Namespace: ${this.connection.namespace})
-          </div>
-        </div>
-
-        <div class="info-message">
-          Select a file (CSV, JSON, TXT, or Excel) to import into an IRIS table.
-        </div>
-
-        <div class="form-group">
-          <label for="file-path">File to Import *</label>
-          <div class="file-input-wrapper">
-            <input type="text" id="file-path" placeholder="Select a file..." readonly required />
-            <button type="button" id="browse-btn">Browse...</button>
-          </div>
-          <small style="color: var(--vscode-descriptionForeground); margin-top: 4px; display: block;">
-            Supported formats: CSV, JSON, TXT, XLSX, XLS
-          </small>
-        </div>
-
-        <div class="form-group">
-          <label for="schema">Target Schema *</label>
-          <input type="text" id="schema" placeholder="e.g., SQLUser" required />
-          <small style="color: var(--vscode-descriptionForeground); margin-top: 4px; display: block;">
-            The schema where the table will be created or updated
-          </small>
-        </div>
-
-        <div class="form-group">
-          <label for="table">Target Table Name *</label>
-          <input type="text" id="table" placeholder="e.g., MyTable" required />
-          <small style="color: var(--vscode-descriptionForeground); margin-top: 4px; display: block;">
-            The table name to import data into
-          </small>
-        </div>
-
-        <div class="button-group">
-          <button type="button" id="import-btn">Import Data</button>
-          <button type="button" id="cancel-btn" class="secondary">Cancel</button>
-        </div>
-
-        <div class="loading">
-          <p>Importing data...</p>
-        </div>
-      </div>
+      <style>${css}</style>
+      ${processedHtml}
     `;
   }
-
   protected getCustomScript(): string {
     return `
       document.getElementById('browse-btn').addEventListener('click', () => {

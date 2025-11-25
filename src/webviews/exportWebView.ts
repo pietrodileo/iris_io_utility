@@ -1,85 +1,56 @@
 import * as vscode from "vscode";
 import { BaseWebview } from "../models/baseWebView";
 import { Connection } from "../models/baseConnection";
+import { ConnectionManager } from "../iris/connectionManager";
+import * as path from "path";
+import * as fs from "fs";
 
 /**
  * Webview for exporting data from IRIS
  */
 export class ExportWebview extends BaseWebview {
-  private schemas: string[] = [];
-  private tables: string[] = [];
-
   constructor(
-    context: vscode.ExtensionContext,
-    connection: Connection
+    context: vscode.ExtensionContext, 
+    connection: Connection, 
+    connectionManager: ConnectionManager,
+    outputChannel: vscode.OutputChannel
   ) {
-    super(context, connection, "export");
+    super(context, connection, connectionManager, "import", outputChannel);
   }
 
   protected getTitle(): string {
-    return `Export Data - ${this.connection.name}`;
+    return `Export Data - ${this.connector.namespace}@${this.connector.host}`;
   }
 
   protected getBodyContent(): string {
+    const htmlPath = path.join(
+      this.context.extensionPath,
+      "src",
+      "webviews",
+      "export",
+      "export.html"
+    );
+    const cssPath = path.join(
+      this.context.extensionPath,
+      "src",
+      "webviews",
+      "export",
+      "export.css"
+    );
+
+    const html = fs.readFileSync(htmlPath, "utf8");
+    const css = fs.readFileSync(cssPath, "utf8");
+
+    // Replace placeholders with actual connection data
+    const processedHtml = html
+      .replace("{{connectionName}}", this.connector.namespace)
+      .replace("{{connectionEndpoint}}", this.connector.host)
+      .replace("{{connectionPort}}", this.connector.port.toString())
+      .replace("{{connectionNamespace}}", this.connector.namespace);
+
     return `
-      <div class="container">
-        <div class="header">
-          <h1>Export Data</h1>
-          <div class="connection-info">
-            Connected to: ${this.connection.name} (${this.connection.endpoint}:${this.connection.port} - Namespace: ${this.connection.namespace})
-          </div>
-        </div>
-
-        <div class="info-message">
-          Select a schema and table to export data from IRIS database.
-        </div>
-
-        <div class="form-group">
-          <label for="schema">Schema *</label>
-          <select id="schema" required>
-            <option value="">Loading schemas...</option>
-          </select>
-          <small style="color: var(--vscode-descriptionForeground); margin-top: 4px; display: block;">
-            Select the schema to export from
-          </small>
-        </div>
-
-        <div class="form-group">
-          <label for="table">Table *</label>
-          <select id="table" required disabled>
-            <option value="">Select a schema first</option>
-          </select>
-          <small style="color: var(--vscode-descriptionForeground); margin-top: 4px; display: block;">
-            Select the table to export
-          </small>
-        </div>
-
-        <div class="form-group">
-          <label for="format">Export Format *</label>
-          <select id="format" required>
-            <option value="csv">CSV</option>
-            <option value="json">JSON</option>
-            <option value="xlsx">Excel (XLSX)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="output-path">Output File Path *</label>
-          <div class="file-input-wrapper">
-            <input type="text" id="output-path" placeholder="Select output location..." readonly required />
-            <button type="button" id="browse-output-btn">Browse...</button>
-          </div>
-        </div>
-
-        <div class="button-group">
-          <button type="button" id="export-btn">Export Data</button>
-          <button type="button" id="cancel-btn" class="secondary">Cancel</button>
-        </div>
-
-        <div class="loading">
-          <p>Exporting data...</p>
-        </div>
-      </div>
+      <style>${css}</style>
+      ${processedHtml}
     `;
   }
 
@@ -98,10 +69,21 @@ export class ExportWebview extends BaseWebview {
         }
       });
 
-      // Browse output path
-      document.getElementById('browse-output-btn').addEventListener('click', () => {
-        const format = document.getElementById('format').value;
-        sendMessage('browse-output', { format });
+      // Folder path change handler - show/hide banner
+      document.getElementById('folder-path').addEventListener('input', (e) => {
+        const folderPath = e.target.value;
+        const banner = document.getElementById('workspace-banner');
+        
+        if (!folderPath || folderPath.trim() === '') {
+          banner.style.display = 'flex';
+        } else {
+          banner.style.display = 'none';
+        }
+      });
+
+      // Browse folder button
+      document.getElementById('browse-folder-btn').addEventListener('click', () => {
+        sendMessage('browse-folder', null);
       });
 
       // Export button
@@ -109,7 +91,8 @@ export class ExportWebview extends BaseWebview {
         const schema = document.getElementById('schema').value;
         const table = document.getElementById('table').value;
         const format = document.getElementById('format').value;
-        const outputPath = document.getElementById('output-path').value;
+        const fileName = document.getElementById('file-name').value.trim();
+        const folderPath = document.getElementById('folder-path').value;
 
         if (!schema) {
           showError('Please select a schema');
@@ -121,13 +104,8 @@ export class ExportWebview extends BaseWebview {
           return;
         }
 
-        if (!outputPath) {
-          showError('Please select an output file path');
-          return;
-        }
-
         showLoading(true);
-        sendMessage('export', { schema, table, format, outputPath });
+        sendMessage('export', { schema, table, format, fileName, folderPath });
       });
 
       // Cancel button
@@ -137,6 +115,9 @@ export class ExportWebview extends BaseWebview {
 
       // Request initial schemas on load
       sendMessage('load-schemas', null);
+
+      // Show workspace banner initially
+      document.getElementById('workspace-banner').style.display = 'flex';
 
       // Override handleMessage to include export-specific handlers
       const originalHandleMessage = handleMessage;
@@ -166,8 +147,11 @@ export class ExportWebview extends BaseWebview {
             showLoading(false);
             break;
 
-          case 'output-path-selected':
-            document.getElementById('output-path').value = message.data;
+          case 'folder-selected':
+            const folderInput = document.getElementById('folder-path');
+            folderInput.value = message.data;
+            const banner = document.getElementById('workspace-banner');
+            banner.style.display = 'none';
             break;
 
           default:
@@ -178,6 +162,7 @@ export class ExportWebview extends BaseWebview {
   }
 
   protected async handleMessage(message: any): Promise<void> {
+    this.log(`[ExportWebview] Received message: ${JSON.stringify(message)}`);
     switch (message.type) {
       case "load-schemas":
         await this.handleLoadSchemas();
@@ -185,8 +170,8 @@ export class ExportWebview extends BaseWebview {
       case "load-tables":
         await this.handleLoadTables(message.data.schema);
         break;
-      case "browse-output":
-        await this.handleBrowseOutput(message.data.format);
+      case "browse-folder":
+        await this.handleBrowseFolder();
         break;
       case "export":
         await this.handleExport(message.data);
@@ -199,8 +184,11 @@ export class ExportWebview extends BaseWebview {
 
   private async handleLoadSchemas(): Promise<void> {
     try {
-      // this.schemas = await this.onLoadSchemas();
-      this.postMessage("schemas-loaded", this.schemas);
+      this.log("[ExportWebview] Loading schemas...");
+      this.log(`[ExportWebview]  Using connector: ${this.connector}`);
+      const schemas = await this.connector.getSchemas();
+      this.log(`[ExportWebview] Loaded schemas: ${schemas}`);
+      this.postMessage("schemas-loaded", schemas);
     } catch (error: any) {
       this.postMessage("error", `Failed to load schemas: ${error.message}`);
     }
@@ -208,42 +196,129 @@ export class ExportWebview extends BaseWebview {
 
   private async handleLoadTables(schema: string): Promise<void> {
     try {
-      // this.tables = await this.onLoadTables(schema);
-      this.postMessage("tables-loaded", this.tables);
+      this.log(`[ExportWebview] Loading tables for schema: ${schema}`);
+      const tables = await this.connector.getTables(schema);
+      this.log(`[ExportWebview] Loaded tables: ${tables}`);
+      this.postMessage("tables-loaded", tables);
     } catch (error: any) {
       this.postMessage("error", `Failed to load tables: ${error.message}`);
       this.postMessage("loading", false);
     }
   }
 
-  private async handleBrowseOutput(format: string): Promise<void> {
-    const filters: { [key: string]: string[] } = {
-      csv: ["csv"],
-      json: ["json"],
-      xlsx: ["xlsx"],
-    };
-
-    const fileUri = await vscode.window.showSaveDialog({
-      filters: {
-        [`${format.toUpperCase()} Files`]: filters[format],
-        "All Files": ["*"],
-      },
-      defaultUri: vscode.Uri.file(`export.${format}`),
-      title: "Save exported data",
+  private async handleBrowseFolder(): Promise<void> {
+    const folderUri = await vscode.window.showOpenDialog({
+      canSelectFiles: false,
+      canSelectFolders: true,
+      canSelectMany: false,
+      title: "Select export destination folder",
     });
 
-    if (fileUri) {
-      this.postMessage("output-path-selected", fileUri.fsPath);
+    if (folderUri && folderUri[0]) {
+      this.postMessage("folder-selected", folderUri[0].fsPath);
     }
   }
 
   private async handleExport(data: ExportData): Promise<void> {
     try {
       this.postMessage("loading", true);
-      // await this.onExport(data);
-      this.postMessage("success", "Data exported successfully!");
+
+      // Determine the output path
+      let outputFolder: string;
+      if (data.folderPath && data.folderPath.trim() !== "") {
+        outputFolder = data.folderPath;
+      } else {
+        // Use workspace folder
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders && workspaceFolders.length > 0) {
+          outputFolder = workspaceFolders[0].uri.fsPath;
+        } else {
+          throw new Error(
+            "No workspace folder found and no output path specified"
+          );
+        }
+      }
+
+      // if fileName is not specified, use schema name and table name
+      if (!data.fileName) {
+        data.fileName = `${data.schema}_${data.table}`;
+      }
+
+      // Append timestamp to fileName
+      const timestampString = this.generateTimestamp(); 
+      data.fileName = `${data.fileName}_${timestampString}`;
+
+      const outputPath = path.join(
+        outputFolder,
+        `${data.fileName}.${data.format}`
+      );
+
+      // Export based on format
+      let exportData: string;
+      switch (data.format) {
+        case "csv":
+          exportData = await this.connector.exportTableToCsv(
+            data.table,
+            data.schema
+          );
+          break;
+        case "txt":
+          exportData = await this.connector.exportTableToTxt(
+            data.table,
+            data.schema
+          );
+          break;
+        case "json":
+          const jsonData = await this.connector.exportTableToJson(
+            data.table,
+            data.schema
+          );
+          exportData = JSON.stringify(jsonData, null, 2);
+          break;
+        case "xlsx":
+          // For Excel, we would need a library like 'xlsx' or 'exceljs'
+          // For now, export as CSV with .xlsx extension (placeholder)
+          this.postMessage(
+            "error",
+            "XLSX export requires additional library. Using CSV format instead."
+          );
+          exportData = await this.connector.exportTableToCsv(
+            data.table,
+            data.schema
+          );
+          break;
+        default:
+          throw new Error(`Unsupported format: ${data.format}`);
+      }
+
+      // Write to file
+      fs.writeFileSync(outputPath, exportData, "utf8");
+
+      this.postMessage(
+        "success",
+        `Data exported successfully to: ${outputPath}`
+      );
+      this.postMessage("loading", false);
+
+      // Ask if user wants to open the file
+      const openFile = await vscode.window.showInformationMessage(
+        `Export completed: ${outputPath}`,
+        "Open File",
+        "Open Folder"
+      );
+
+      if (openFile === "Open File") {
+        const doc = await vscode.workspace.openTextDocument(outputPath);
+        await vscode.window.showTextDocument(doc);
+      } else if (openFile === "Open Folder") {
+        await vscode.commands.executeCommand(
+          "revealFileInOS",
+          vscode.Uri.file(outputPath)
+        );
+      }
     } catch (error: any) {
       this.postMessage("error", `Export failed: ${error.message}`);
+      this.postMessage("loading", false);
     }
   }
 }
@@ -251,6 +326,7 @@ export class ExportWebview extends BaseWebview {
 export interface ExportData {
   schema: string;
   table: string;
-  format: "csv" | "json" | "xlsx";
-  outputPath: string;
+  format: "csv" | "json" | "xlsx" | "txt";
+  fileName: string;
+  folderPath: string;
 }

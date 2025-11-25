@@ -3,9 +3,6 @@ import { Connection } from "../models/baseConnection";
 import { ConnectionsProvider } from "../providers/connectionsProvider";
 import { ConnectionManager } from "../iris/connectionManager";
 import { ConnectionInputs } from "./connectionInputs";
-import { TableTransferWebview } from "../webviews/tableTransferWebview";
-import { ImportWebview } from "../webviews/importWebView";
-import { ExportWebview } from "../webviews/exportWebView";
 import { WebviewManager } from "../webviews/webViewManager";
 
 /**
@@ -147,7 +144,7 @@ export class CommandHandlers {
           await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
-              title: `Connecting to "${connection.name}"...`,
+              title: `Connecting to "${connection.name}."`,
               cancellable: false,
             },
             async (progress) => {
@@ -281,37 +278,6 @@ export class CommandHandlers {
   }
 
   /* ================== Table Import/Export ==================== */
-  private tableWebviews: Map<string, TableTransferWebview> = new Map();
-
-  private openTableWebview(connection: Connection, mode: "import" | "export") {
-    if (!connection) {
-      vscode.window.showErrorMessage("Invalid connection");
-      return;
-    }
-
-    if (!this.connectionManager.isConnected(connection.id)) {
-      vscode.window.showWarningMessage(
-        `Connection "${connection.name}" is not active. Please connect first.`
-      );
-      return;
-    }
-
-    const key = `${connection.id}-${mode}`;
-
-    let webview = this.tableWebviews.get(key);
-    if (!webview) {
-      webview = new TableTransferWebview();
-      this.tableWebviews.set(key, webview);
-
-      // When the panel is closed, remove it from the map
-      webview.onDidDispose(() => {
-        this.tableWebviews.delete(key);
-      });
-    }
-
-    webview.open(connection, mode);
-  }
-
   private registerImportTables(): void {
     this.context.subscriptions.push(
       vscode.commands.registerCommand("irisIO.importTables",async (item: any) => {
@@ -319,7 +285,6 @@ export class CommandHandlers {
           vscode.window.showErrorMessage("Invalid connection item");
           return;
         }
-
         const connection = item.connection;
         this.webviewManager.show(connection, "import");
       })
@@ -334,7 +299,7 @@ export class CommandHandlers {
             return;
           }
           const connection = item.connection;
-          this.openTableWebview(connection, "export");
+          this.webviewManager.show(connection, "export");
         }
       )
     );

@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import { Connection } from "./baseConnection";
+import { IrisConnector } from "../iris/irisConnector";
+import { ConnectionManager } from "../iris/connectionManager";
 
 type WebviewMode = "import" | "export";
 
@@ -12,12 +14,26 @@ export abstract class BaseWebview {
   protected disposables: vscode.Disposable[] = [];
   private _isDisposed = false; // track disposal
   protected mode: WebviewMode | undefined;
+  public outputChannel: vscode.OutputChannel;
+  protected connection: Connection;
+  protected connector: IrisConnector;
 
   constructor(
     protected context: vscode.ExtensionContext,
-    protected connection: Connection,
-    mode: WebviewMode
-  ) {}
+    connection: Connection,
+    connectionManager: ConnectionManager,
+    mode: WebviewMode,
+    outputChannel: vscode.OutputChannel
+  ) {
+    this.mode = mode;
+    this.outputChannel = outputChannel;
+    this.connection = connection;
+    const existing = connectionManager.getConnector(connection.id);
+    if (!existing) {
+      throw new Error(`No connector found for connection id: ${connection.id}`);
+    }
+    this.connector = existing;
+  }
 
   /**
    * Show the webview panel (reveal if exists, create if not or disposed)
@@ -69,7 +85,9 @@ export abstract class BaseWebview {
     connection: Connection,
     mode: "import" | "export" | undefined
   ): string {
-    if (!mode) {return "";}
+    if (!mode) {
+      return "";
+    }
     return `iris-${mode}-${connection.id}`; // unique viewType per connection+mode
   }
 
@@ -387,6 +405,11 @@ export abstract class BaseWebview {
     return text;
   }
 
+  public generateTimestamp() {
+    const now = new Date();
+    return now.toISOString().replace(/[-:T]/g,"").slice(0,15); // yyyymmddhhmmss
+  }
+
   /** Expose onDidDispose callback for manager */
   private _onDidDispose?: () => void;
   public onDidDispose(callback: () => void) {
@@ -412,5 +435,13 @@ export abstract class BaseWebview {
   /** Whether panel is disposed */
   public isDisposed(): boolean {
     return this._isDisposed;
+  }
+
+  /**
+   * Log message with timestamp
+   */
+  public log(message: string): void {
+    const timestamp = new Date().toISOString();
+    this.outputChannel.appendLine(`[${timestamp}] ${message}`);
   }
 }

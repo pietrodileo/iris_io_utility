@@ -3,18 +3,29 @@ import { Connection } from "../models/baseConnection";
 import { BaseWebview } from "../models/baseWebView";
 import { ExportWebview } from "./exportWebView";
 import { ImportWebview } from "./importWebView";
+import { ConnectionManager } from "../iris/connectionManager";
 
 /* Manages webview panels for different connections and modes */
 export class WebviewManager {
   private panels: Map<string, BaseWebview> = new Map();
+  private connectionManager: ConnectionManager;
+  private outputChannel: vscode.OutputChannel;
 
-  constructor(private context: vscode.ExtensionContext) {}
+  constructor(
+    private context: vscode.ExtensionContext,
+    connectionManager: ConnectionManager,
+    outputChannel: vscode.OutputChannel
+  ) {
+    this.outputChannel = outputChannel;
+    this.connectionManager = connectionManager;
+  }
 
   /**
    * Show a webview for a connection and mode
    */
   public show(connection: Connection, mode: "import" | "export") {
     const key = `iris-${mode}-${connection.id}`;
+    this.log(`[WebviewManager] Showing webview with mode '${mode}' for connection item: ${key}`);
     // Get existing panel if it exists
     let webview = this.panels.get(key);
 
@@ -28,8 +39,8 @@ export class WebviewManager {
     if (!webview) {
       webview =
         mode === "import"
-          ? new ImportWebview(this.context, connection)
-          : new ExportWebview(this.context, connection);
+          ? new ImportWebview(this.context, connection, this.connectionManager, this.outputChannel)
+          : new ExportWebview(this.context, connection, this.connectionManager, this.outputChannel);
 
       this.panels.set(key, webview);
 
@@ -51,5 +62,13 @@ export class WebviewManager {
       webview.dispose();
     }
     this.panels.clear();
+  }
+
+  /**
+   * Log message with timestamp
+   */
+  private log(message: string): void {
+    const timestamp = new Date().toISOString();
+    this.outputChannel.appendLine(`[${timestamp}] ${message}`);
   }
 }
