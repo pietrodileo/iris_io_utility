@@ -112,19 +112,16 @@ export class IrisConnector {
 
   // ---------- Query Execution ----------
   async query(sql: string, parameters: any[] = []): Promise<any[]> {
-    this.log("[IrisConnector] Query method called");
-    this.log(`[IrisConnector] isConnected:", ${this.isConnected()}`);
-    this.log(`[IrisConnector] sql object exists:", ${!!this.sql}`);
-
+    // this.log("[IrisConnector] Query method called");
+    // this.log(`[IrisConnector] isConnected:", ${this.isConnected()}`);
+    // this.log(`[IrisConnector] sql object exists:", ${!!this.sql}`);
     if (!this.isConnected()) {
       throw new Error("Not connected to IRIS");
     }
-
     if (!this.sql) {
       throw new Error("SQL client not initialized. Call connect() first.");
     }
-
-    this.log("[IrisConnector] About to call sql.query...");
+    // this.log("[IrisConnector] About to call sql.query...");
     return await this.sql.query(sql, parameters);
   }
 
@@ -136,21 +133,27 @@ export class IrisConnector {
   }
 
   // ---------- Schema & Table Information ----------
-  async getSchemas(): Promise<string[]> {
-    const sql = `
+  async getSchemas(filter: string | null = null): Promise<string[]> {
+    this.log(`[IrisConnector] Getting schemas`);
+    let sql = `
       SELECT DISTINCT TABLE_SCHEMA
       FROM INFORMATION_SCHEMA.TABLES
       WHERE TABLE_TYPE='BASE TABLE'
-      ORDER BY TABLE_SCHEMA
     `;
+    let parameters: any[] = [];
+    if (typeof filter === "string" && filter.trim() !== "") {
+      sql += ` AND TABLE_SCHEMA LIKE ? `;
+      parameters.push(`${filter}%`);
+    }
+    sql += " ORDER BY TABLE_SCHEMA ";
 
-    this.log(`[IrisConnector] Executing query:" ${sql}`);
-    const results = await this.query(sql);
-    this.log(`[IrisConnector] Query results:" ${results}`);
+    const results = await this.query(sql, parameters);
+    this.log(`[IrisConnector] Got schemas`);
     return results.map((row) => row.TABLE_SCHEMA);
   }
 
   async getTables(schema: string): Promise<string[]> {
+    this.log(`[IrisConnector] Getting tables for schema ${schema}`);
     const sql = `
       SELECT TABLE_NAME
       FROM INFORMATION_SCHEMA.TABLES
@@ -158,8 +161,8 @@ export class IrisConnector {
       AND TABLE_TYPE='BASE TABLE'
       ORDER BY TABLE_NAME
     `;
-
     const results = await this.query(sql, [schema]);
+    this.log(`[IrisConnector] Got tables for schema ${schema}`);
     return results.map((row) => row.TABLE_NAME);
   }
 

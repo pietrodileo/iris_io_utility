@@ -153,21 +153,69 @@ button.secondary:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-.loading {
-    display: none;
-    margin-top: 20px;
-    padding: 15px;
-    background-color: var(--vscode-editor-inactiveSelectionBackground);
-    border-radius: 4px;
-    text-align: center;
+.schema-search-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 
-.loading p {
-    margin: 0;
-    color: var(--vscode-foreground);
-    font-size: 14px;
+.schema-search-group input {
+    flex: 1;
+    padding: 8px 10px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 2px;
+    font-size: 13px;
+    font-family: var(--vscode-font-family);
 }
 
-.loading.active {
-    display: block;
+.schema-search-group input:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
+}
+
+.schema-search-group input::placeholder {
+    color: var(--vscode-input-placeholderForeground);
+}
+
+.schema-search-group button {
+    padding: 8px 16px;
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+}
+
+.schema-search-group button:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.schema-search-wrapper {
+    display: flex;
+    gap: 8px;
+}
+
+.schema-search-wrapper input {
+    flex: 1;
+}
+
+.schema-search-wrapper button {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    white-space: nowrap;
+}
+
+select#schema.loading,
+select#table.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+#schema:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#schema.loading {
+    opacity: 0.6;
+    pointer-events: none;
 }

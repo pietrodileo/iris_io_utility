@@ -11,12 +11,25 @@
   </div>
 
   <div class="form-group">
-    <label for="schema">Schema *</label>
-    <select id="schema" required>
+    <small class="field-hint">
+      Click Search to load schemas. Enter text to filter, or leave empty to load all.
+    </small>
+    <div class="schema-search-wrapper">
+      <input type="text" id="schema-search" placeholder="Enter keyword to filter schemas..." />
+      <button type="button" id="search-schema-btn">Search Schemas</button>
+    </div>
+    <small class="field-hint">
+      Leave empty to load all schemas or type text to filter results.
+    </small>
+  </div>
+
+  <div class="form-group">
+    <label for="schema">Schemas</label>
+    <select id="schema" disabled>
       <option value="">Loading schemas...</option>
     </select>
     <small class="field-hint">
-      Select the schema to export from
+      Select a schema to load tables
     </small>
   </div>
 
@@ -36,7 +49,7 @@
       <option value="csv">CSV</option>
       <option value="txt">TXT</option>
       <option value="json">JSON</option>
-      <option value="xlsx">Excel (XLSX)</option>
+      <!-- <option value="xlsx">Excel (XLSX)</option> -->
     </select>
     <small class="field-hint">
       Choose the output file format
@@ -47,7 +60,7 @@
     <label for="file-name">File Name *</label>
     <input type="text" id="file-name" placeholder="e.g., my_export" required />
     <small class="field-hint">
-      Enter the file name without extension. If left empty, schema name and table name will be used.
+      If left empty, schema and table name will be used.
     </small>
   </div>
 
@@ -72,9 +85,5 @@
   <div class="button-group">
     <button type="button" id="export-btn">Export Data</button>
     <button type="button" id="cancel-btn" class="secondary">Cancel</button>
-  </div>
-
-  <div class="loading">
-    <p>Exporting data...</p>
   </div>
 </div>
