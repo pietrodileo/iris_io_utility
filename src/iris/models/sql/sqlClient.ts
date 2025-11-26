@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import type { SQLResult, SQLColumn } from "./sqlTypes";
 import { IRISStatementType, ODBCType } from "./sqlTypes";
 
@@ -6,9 +7,15 @@ import { IRISStatementType, ODBCType } from "./sqlTypes";
  */
 export class SQLStatement {
   private readonly _st: any;
+  public outputChannel: vscode.OutputChannel;
 
-  constructor(private iris: any, public queryString: string) {
+  constructor(
+    private iris: any,
+    public queryString: string,
+    outputChannel: vscode.OutputChannel
+  ) {
     try {
+      this.outputChannel = outputChannel;
       this._st = iris.classMethodValue("%SQL.Statement", "%New", 1);
       const status = this._st.invokeString("%Prepare", this.queryString);
       if (status !== "1") {
@@ -34,12 +41,24 @@ export class SQLStatement {
       return [];
     }
     return args.map((arg) => {
-      if (arg === null || arg === undefined) {return null;}
-      if (typeof arg === "string") {return arg;}
-      if (typeof arg === "number") {return arg.toString();}
-      if (typeof arg === "boolean") {return arg ? "1" : "0";}
-      if (Buffer.isBuffer(arg)) {return arg.toString("binary");}
-      if (arg instanceof Date) {return this.dateToString(arg);}
+      if (arg === null || arg === undefined) {
+        return null;
+      }
+      if (typeof arg === "string") {
+        return arg;
+      }
+      if (typeof arg === "number") {
+        return arg.toString();
+      }
+      if (typeof arg === "boolean") {
+        return arg ? "1" : "0";
+      }
+      if (Buffer.isBuffer(arg)) {
+        return arg.toString("binary");
+      }
+      if (arg instanceof Date) {
+        return this.dateToString(arg);
+      }
       return arg;
     });
   }
@@ -78,7 +97,9 @@ export class SQLStatement {
 
   private fetchMetadata(_rs: any, result: SQLResult): void {
     const metadata = _rs.invokeObject("%GetMetadata");
-    if (!metadata) {return;}
+    if (!metadata) {
+      return;
+    }
 
     const columns = metadata.getObject("columns");
     const colCount = metadata.getNumber("columnCount");
@@ -114,61 +135,81 @@ export class SQLStatement {
   }
 
   private fetchRows(_rs: any, result: SQLResult): void {
+    const startTime = Date.now();
+    let rowCount = 0;
+
+    // Pre-create type getters for each column to avoid repeated switch statements
+    // This is the KEY optimization - we create the getter functions ONCE
+    const columnGetters = result.columns.map((col) => {
+      const colName = col.colName;
+
+      switch (col.ODBCType) {
+        case ODBCType.INTEGER:
+        case ODBCType.SMALLINT:
+        case ODBCType.TINYINT:
+        case ODBCType.FLOAT:
+        case ODBCType.REAL:
+        case ODBCType.DOUBLE:
+        case ODBCType.DATE_HOROLOG:
+        case ODBCType.TIME_HOROLOG:
+          return (rs: any) => rs.invokeNumber("%Get", colName);
+
+        case ODBCType.DATE:
+        case ODBCType.TIMESTAMP:
+          return (rs: any) => {
+            const value = rs.invokeString("%Get", colName);
+            return value ? new Date(value) : null;
+          };
+
+        case ODBCType.TIME:
+        case ODBCType.BIGINT:
+        case ODBCType.NUMERIC:
+          return (rs: any) => rs.invokeString("%Get", colName);
+
+        case ODBCType.DECIMAL:
+          return (rs: any) => rs.invokeDecimal("%Get", colName);
+
+        case ODBCType.BINARY:
+        case ODBCType.LONGVARBINARY:
+        case ODBCType.LONGVARCHAR:
+          return (rs: any) => rs.invokeIRISList("%Get", colName);
+
+        case ODBCType.BIT:
+          return (rs: any) => rs.invokeBoolean("%Get", colName);
+
+        case ODBCType.VARCHAR:
+        default:
+          return (rs: any) => rs.invokeString("%Get", colName);
+      }
+    });
+
+    // Fetch all rows using optimized column getters
     while (_rs.invokeBoolean("%Next")) {
       const row: any = {};
-      result.columns.forEach((col) => {
-        const colName = col.colName;
-        let value;
 
-        switch (col.ODBCType) {
-          case ODBCType.INTEGER:
-          case ODBCType.SMALLINT:
-          case ODBCType.TINYINT:
-            value = _rs.invokeNumber("%Get", colName);
-            break;
-          case ODBCType.DATE:
-          case ODBCType.TIMESTAMP:
-            value = _rs.invokeString("%Get", colName);
-            value = new Date(value);
-            break;
-          case ODBCType.TIME:
-            value = _rs.invokeString("%Get", colName);
-            break;
-          case ODBCType.DATE_HOROLOG:
-          case ODBCType.TIME_HOROLOG:
-            value = _rs.invokeNumber("%Get", colName);
-            break;
-          case ODBCType.BIGINT:
-            value = _rs.invokeString("%Get", colName);
-            break;
-          case ODBCType.NUMERIC:
-            value = _rs.invokeString("%Get", colName);
-            break;
-          case ODBCType.FLOAT:
-          case ODBCType.REAL:
-          case ODBCType.DOUBLE:
-            value = _rs.invokeNumber("%Get", colName);
-            break;
-          case ODBCType.DECIMAL:
-            value = _rs.invokeDecimal("%Get", colName);
-            break;
-          case ODBCType.BINARY:
-          case ODBCType.LONGVARBINARY:
-          case ODBCType.LONGVARCHAR:
-            value = _rs.invokeIRISList("%Get", colName);
-            break;
-          case ODBCType.BIT:
-            value = _rs.invokeBoolean("%Get", colName);
-            break;
-          case ODBCType.VARCHAR:
-            value = _rs.invokeString("%Get", colName);
-            break;
-          default:
-            value = _rs.invokeString("%Get", colName);
-        }
-        row[colName] = value;
+      // Use pre-created getters instead of switch statement
+      result.columns.forEach((col, index) => {
+        row[col.colName] = columnGetters[index](_rs);
       });
+
       result.rows.push(row);
+      rowCount++;
     }
+
+    const elapsed = Date.now() - startTime;
+    this.log(
+      `[SQLStatement] Fetched ${rowCount} rows in ${elapsed}ms (${(
+        rowCount /
+        (elapsed / 1000)
+      ).toFixed(0)} rows/sec)`
+    );
+  }
+
+  /**
+   * Log message with timestamp
+   */
+  public log(message: string): void {
+    const timestamp = new Date().toISOString();
+    this.outputChannel.appendLine(`[${timestamp}] ${message}`);
   }
 }

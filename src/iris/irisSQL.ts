@@ -33,7 +33,7 @@ export class IRISql {
     try {
       this.log(`[IRISql] Executing query: ${sql}`);
 
-      const statement = new SQLStatement(this.iris, sql);
+      const statement = new SQLStatement(this.iris, sql, this.outputChannel);
       const result = statement.execute(...parameters);
 
       if (result.Message) {
@@ -55,7 +55,7 @@ export class IRISql {
     try {
       this.log(`[IRISql] Executing statement: ${sql}`);
 
-      const statement = new SQLStatement(this.iris, sql);
+      const statement = new SQLStatement(this.iris, sql, this.outputChannel);
       const result = statement.execute(...parameters);
 
       if (result.Message) {
@@ -87,7 +87,7 @@ export class IRISql {
     parameters: any[] = []
   ): Promise<SQLResult> {
     try {
-      const statement = new SQLStatement(this.iris, sql);
+      const statement = new SQLStatement(this.iris, sql, this.outputChannel);
       const result = statement.execute(...parameters);
 
       if (result.Message) {

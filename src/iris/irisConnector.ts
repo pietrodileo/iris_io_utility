@@ -1,14 +1,19 @@
 import * as vscode from "vscode";
 const irisnative = require("@intersystems/intersystems-iris-native");
 import type { IrisConnectionConfig } from "./models/connection/irisConnectionConfig";
-import {TableColumn, TableIndex, TableDescription, SchemaTable} from "./models/connection/irisTables";
+import {
+  TableColumn,
+  TableIndex,
+  TableDescription,
+  SchemaTable,
+} from "./models/connection/irisTables";
 import { IRISql } from "./irisSQL";
 
 /**
  * Class that represents a connection to an IRIS instance and provides methods for executing queries.
- *  It is a wrapper around the irisnative library. 
- * 
- * This is an adaptation of IRIStool Python package, a wrapper around the IRIS Native Python SDK, 
+ *  It is a wrapper around the irisnative library.
+ *
+ * This is an adaptation of IRIStool Python package, a wrapper around the IRIS Native Python SDK,
  *  that can be found at: https://github.com/pietrodileo/iris_tool_and_data_manager
  */
 export class IrisConnector {
@@ -112,16 +117,12 @@ export class IrisConnector {
 
   // ---------- Query Execution ----------
   async query(sql: string, parameters: any[] = []): Promise<any[]> {
-    // this.log("[IrisConnector] Query method called");
-    // this.log(`[IrisConnector] isConnected:", ${this.isConnected()}`);
-    // this.log(`[IrisConnector] sql object exists:", ${!!this.sql}`);
     if (!this.isConnected()) {
       throw new Error("Not connected to IRIS");
     }
     if (!this.sql) {
       throw new Error("SQL client not initialized. Call connect() first.");
     }
-    // this.log("[IrisConnector] About to call sql.query...");
     return await this.sql.query(sql, parameters);
   }
 
@@ -148,7 +149,7 @@ export class IrisConnector {
     sql += " ORDER BY TABLE_SCHEMA ";
 
     const results = await this.query(sql, parameters);
-    this.log(`[IrisConnector] Got schemas`);
+    this.log(`[IrisConnector] Got ${results.length} schemas`);
     return results.map((row) => row.TABLE_SCHEMA);
   }
 
@@ -162,7 +163,9 @@ export class IrisConnector {
       ORDER BY TABLE_NAME
     `;
     const results = await this.query(sql, [schema]);
-    this.log(`[IrisConnector] Got tables for schema ${schema}`);
+    this.log(
+      `[IrisConnector] Got ${results.length} tables for schema ${schema}`
+    );
     return results.map((row) => row.TABLE_NAME);
   }
 
@@ -240,21 +243,37 @@ export class IrisConnector {
     };
   }
 
-  // ---------- Table Data Export ----------
+  // ---------- Table Data Export (OPTIMIZED) ----------
   async exportTableToJson(
     tableName: string,
-    schema: string = "SQLUser"
+    schema: string = "SQLUser",
+    limit?: number
   ): Promise<any[]> {
     const fullTableName = `${schema}.${tableName}`;
-    const sql = `SELECT * FROM ${fullTableName}`;
-    return await this.query(sql);
+    const sql = limit
+      ? `SELECT TOP ${limit} * FROM ${fullTableName}`
+      : `SELECT * FROM ${fullTableName}`;
+
+    this.log(`[IrisConnector] Exporting ${fullTableName} to JSON...`);
+    const startTime = Date.now();
+
+    const result = await this.query(sql);
+
+    const elapsed = Date.now() - startTime;
+    this.log(`[IrisConnector] Exported ${result.length} rows in ${elapsed}ms`);
+
+    return result;
   }
 
   async exportTableToCsv(
     tableName: string,
-    schema: string = "SQLUser"
+    schema: string = "SQLUser",
+    limit?: number
   ): Promise<string> {
-    const data = await this.exportTableToJson(tableName, schema);
+    this.log(`[IrisConnector] Exporting ${schema}.${tableName} to CSV...`);
+    const startTime = Date.now();
+
+    const data = await this.exportTableToJson(tableName, schema, limit);
 
     if (data.length === 0) {
       return "";
@@ -263,18 +282,21 @@ export class IrisConnector {
     // Get headers
     const headers = Object.keys(data[0]);
 
-    // Create CSV
-    const csvRows: string[] = [];
-    csvRows.push(headers.join(","));
+    // Pre-allocate array with estimated size for better performance
+    const estimatedSize = data.length + 1;
+    const csvRows: string[] = new Array(estimatedSize);
+    csvRows[0] = headers.join(",");
 
-    for (const row of data) {
+    // Batch process rows for better performance
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
       const values = headers.map((header) => {
         const value = row[header];
-        // Escape values that contain commas or quotes
         if (value === null || value === undefined) {
           return "";
         }
         const stringValue = String(value);
+        // Only escape if necessary
         if (
           stringValue.includes(",") ||
           stringValue.includes('"') ||
@@ -284,18 +306,30 @@ export class IrisConnector {
         }
         return stringValue;
       });
-      csvRows.push(values.join(","));
+      csvRows[i + 1] = values.join(",");
     }
 
-    return csvRows.join("\n");
+    const result = csvRows.join("\n");
+    const elapsed = Date.now() - startTime;
+    this.log(
+      `[IrisConnector] CSV export completed in ${elapsed}ms (${Math.round(
+        result.length / 1024
+      )}KB)`
+    );
+
+    return result;
   }
 
   async exportTableToTxt(
     tableName: string,
     schema: string = "SQLUser",
-    delimiter: string = "\t"
+    delimiter: string = "\t",
+    limit?: number
   ): Promise<string> {
-    const data = await this.exportTableToJson(tableName, schema);
+    this.log(`[IrisConnector] Exporting ${schema}.${tableName} to TXT...`);
+    const startTime = Date.now();
+
+    const data = await this.exportTableToJson(tableName, schema, limit);
 
     if (data.length === 0) {
       return "";
@@ -304,26 +338,32 @@ export class IrisConnector {
     // Get headers
     const headers = Object.keys(data[0]);
 
-    // Create delimited text
-    const rows: string[] = [];
-    rows.push(headers.join(delimiter));
+    // Pre-allocate array
+    const rows: string[] = new Array(data.length + 1);
+    rows[0] = headers.join(delimiter);
 
-    for (const row of data) {
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
       const values = headers.map((header) => {
         const value = row[header];
         return value === null || value === undefined ? "" : String(value);
       });
-      rows.push(values.join(delimiter));
+      rows[i + 1] = values.join(delimiter);
     }
 
-    return rows.join("\n");
+    const result = rows.join("\n");
+    const elapsed = Date.now() - startTime;
+    this.log(`[IrisConnector] TXT export completed in ${elapsed}ms`);
+
+    return result;
   }
 
   async exportTableToExcelData(
     tableName: string,
-    schema: string = "SQLUser"
+    schema: string = "SQLUser",
+    limit?: number
   ): Promise<{ headers: string[]; data: any[][] }> {
-    const jsonData = await this.exportTableToJson(tableName, schema);
+    const jsonData = await this.exportTableToJson(tableName, schema, limit);
 
     if (jsonData.length === 0) {
       return { headers: [], data: [] };
