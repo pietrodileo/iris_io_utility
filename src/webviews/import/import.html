@@ -1,48 +1,121 @@
 <div class="container">
-  <div class="header">
-    <h1>Import Data</h1>
-    <div class="connection-info">
-      Connected to: {{connectionName}} ({{connectionEndpoint}}:{{connectionPort}} - Namespace: {{connectionNamespace}})
+    <div class="header">
+        <h1>Import Data Wizard</h1>
+        <div class="connection-info">
+            Connected to: {{connectionName}} ({{connectionEndpoint}}:{{connectionPort}} - Namespace: {{connectionNamespace}})
+        </div>
     </div>
-  </div>
 
-  <div class="info-message">
-    Select a file (CSV, JSON, TXT, or Excel) to import into an IRIS table.
-  </div>
+    <div class="tabs">
+        <input type="radio" id="tab-new" name="tab-group" checked>
+        <label for="tab-new" class="tab-label">➕ Create New Table</label>
 
-  <div class="form-group">
-    <label for="file-path">File to Import *</label>
-    <div class="file-input-wrapper">
-      <input type="text" id="file-path" placeholder="Select a file..." readonly required />
-      <button type="button" id="browse-btn">Browse...</button>
+        <input type="radio" id="tab-existing" name="tab-group">
+        <label for="tab-existing" class="tab-label">📂 Load Existing Table</label>
+
+        <div class="tab-content">
+            
+            <div id="content-new" class="tab-panel">
+                <div class="info-message">
+                    Import a file to create a **brand new table**. You can select an existing schema or type a new one.
+                </div>
+                
+                <div class="form-group">
+                    <label for="new-file-input">File to Import (CSV, JSON, TXT) *</label>
+                    <div class="file-input-wrapper">
+                        <input type="text" id="new-file-input" placeholder="Select a file..." readonly required />
+                        <button type="button" id="browse-new-file-btn">Browse...</button>
+                    </div>
+                    <small class="field-hint">
+                        File must be CSV, JSON, or TXT.
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="new-schema-select">Target Schema *</label>
+                    <div class="input-select-group">
+                        <input type="text" id="new-schema-input" placeholder="Enter new schema name or select below" value="{{connectionNamespace}}" list="new-schema-list">
+                        <datalist id="new-schema-list">
+                            <option value="{{connectionNamespace}}">Current Namespace</option>
+                        </datalist>
+                        <button type="button" id="search-new-schema-btn" title="Search/Refresh Schemas">🔍</button>
+                    </div>
+                    <small class="field-hint">
+                        The table will be created in the selected or typed schema.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="new-table-name">New Table Name *</label>
+                    <input type="text" id="new-table-name" placeholder="e.g., imported_users" required>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" id="create-import-btn" class="primary">Create Table & Import</button>
+                </div>
+            </div>
+            <div id="content-existing" class="tab-panel">
+                 <div class="info-message">
+                    Import a file into an **existing table** and choose to Append or Replace data.
+                </div>
+
+                <div class="form-group">
+                    <label for="existing-file-input">File to Import (CSV, JSON, TXT) *</label>
+                     <div class="file-input-wrapper">
+                        <input type="text" id="existing-file-input" placeholder="Select a file..." readonly required />
+                        <button type="button" id="browse-existing-file-btn">Browse...</button>
+                    </div>
+                    <small class="field-hint">
+                         File must be CSV, JSON, or TXT.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="schema-import">Target Schema *</label>
+                    <select id="schema-import" required disabled>
+                        <option value="">Select schema (click tab or browse to load)</option>
+                    </select>
+                    <small class="field-hint">
+                        Select a schema containing the target table.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="table-import">Target Table *</label>
+                    <select id="table-import" required disabled>
+                        <option value="">Select a schema first</option>
+                    </select>
+                    <small class="field-hint">
+                        Select the existing table to load data into.
+                    </small>
+                </div>
+
+                <div class="form-group data-handling-group">
+                    <label>Data Handling Mode *</label>
+                    <div class="radio-group">
+                        <input type="radio" id="append-data" name="data-action" value="append" checked>
+                        <label for="append-data">Append Data</label>
+                        <small class="field-hint">Adds new data to the end of the existing rows.</small>
+                    </div>
+                    <div class="radio-group">
+                        <input type="radio" id="replace-data" name="data-action" value="replace">
+                        <label for="replace-data">Replace Data</label>
+                        <small class="field-hint">**Deletes all** existing rows, then inserts new data.</small>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" id="load-existing-btn" class="primary">Load Data</button>
+                </div>
+            </div>
+        </div>
     </div>
-    <small class="field-hint">
-      Supported formats: CSV, JSON, TXT, XLSX, XLS
-    </small>
-  </div>
 
-  <div class="form-group">
-    <label for="schema">Target Schema *</label>
-    <input type="text" id="schema" placeholder="e.g., SQLUser" required />
-    <small class="field-hint">
-      The schema where the table will be created or updated
-    </small>
-  </div>
-
-  <div class="form-group">
-    <label for="table">Target Table Name *</label>
-    <input type="text" id="table" placeholder="e.g., MyTable" required />
-    <small class="field-hint">
-      The table name to import data into
-    </small>
-  </div>
-
-  <div class="button-group">
-    <button type="button" id="import-btn">Import Data</button>
-    <button type="button" id="cancel-btn" class="secondary">Cancel</button>
-  </div>
-
-  <div class="loading">
-    <p>Importing data...</p>
-  </div>
+    <div class="button-group bottom-actions">
+        <button type="button" id="cancel-btn" class="secondary">Cancel</button>
+    </div>
+    
+    <div class="loading">
+        <p>Importing data...</p>
+    </div>
 </div>

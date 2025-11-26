@@ -146,3 +146,84 @@ button.secondary:hover {
 .loading.active {
     display: block;
 }
+
+/* --- Styles for Tabbed Interface --- */
+
+/* Hide radio inputs, we use them for state management */
+.tabs input[type="radio"] {
+    display: none;
+}
+
+/* Style for the tab labels */
+.tabs label.tab-label {
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: var(--vscode-editorGroupHeader-tabsBackground);
+    color: var(--vscode-tab-inactiveForeground);
+    border: 1px solid var(--vscode-panel-border);
+    border-bottom: none;
+    display: inline-block;
+    border-radius: 4px 4px 0 0;
+    margin-right: 2px;
+    transition: background-color 0.2s;
+    font-size: 14px;
+}
+
+.tabs label.tab-label:hover {
+    background-color: var(--vscode-tab-hoverBackground);
+}
+
+/* Style for the active tab label */
+.tabs input[type="radio"]:checked+label.tab-label {
+    background-color: var(--vscode-editor-background);
+    /* Matches the panel background */
+    color: var(--vscode-tab-activeForeground);
+    font-weight: bold;
+    border-bottom: 1px solid var(--vscode-editor-background);
+    /* Hide the bottom border */
+    z-index: 10;
+}
+
+/* Style for the content container */
+.tab-content {
+    border: 1px solid var(--vscode-panel-border);
+    padding: 20px;
+    background-color: var(--vscode-editor-background);
+    margin-top: -1px;
+    /* Overlap with the tab borders */
+    border-radius: 0 4px 4px 4px;
+}
+
+/* Hide all tab panels by default */
+.tab-panel {
+    display: none;
+}
+
+/* Show the active tab panel */
+#tab-new:checked~.tab-content #content-new,
+#tab-existing:checked~.tab-content #content-existing {
+    display: block;
+}
+
+/* --- Radio Group Styling for Data Handling --- */
+.radio-group {
+    margin: 5px 0;
+    padding: 5px;
+    border-radius: 2px;
+}
+
+.radio-group input[type="radio"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.radio-group label {
+    font-weight: normal !important;
+    display: inline-block !important;
+    cursor: pointer;
+    margin-bottom: 0 !important;
+}
+
+.data-handling-group .radio-group .field-hint {
+    margin-left: 20px;
+}
