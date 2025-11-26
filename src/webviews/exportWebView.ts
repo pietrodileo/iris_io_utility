@@ -99,12 +99,12 @@ export class ExportWebview extends BaseWebview {
         const folderPath = document.getElementById('folder-path').value;
 
         if (!schema) {
-          showError('Please select a schema');
+          sendMessage('error', 'Please select a schema');
           return;
         }
 
         if (!table) {
-          showError('Please select a table');
+          sendMessage('error', 'Please select a table');
           return;
         }
 
@@ -218,6 +218,8 @@ export class ExportWebview extends BaseWebview {
       case "cancel":
         this.dispose();
         break;
+      case "error":
+        vscode.window.showErrorMessage(message.data);
       default:
         this.log(`[ExportWebview] Unknown message type: ${message.type}`);
         break;
@@ -242,7 +244,7 @@ export class ExportWebview extends BaseWebview {
     try {
       this.log(`[ExportWebview] Loading tables for schema: ${schema}`);
       const tables = await this.connector.getTables(schema);
-      this.log(`[ExportWebview] Loaded tables: ${tables}`);
+      this.log(`[ExportWebview] Loaded tables`);
       this.postMessage("tables-loaded", tables);
     } catch (error: any) {
       vscode.window.showErrorMessage(`Failed to load tables: ${error.message}`);

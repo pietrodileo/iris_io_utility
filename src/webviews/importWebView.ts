@@ -15,6 +15,7 @@ export class ImportWebview extends BaseWebview {
     connectionManager: ConnectionManager,
     outputChannel: vscode.OutputChannel
   ) {
+    // NOTE: Changed base view name back to "import"
     super(context, connection, connectionManager, "import", outputChannel);
   }
 
@@ -41,18 +42,19 @@ export class ImportWebview extends BaseWebview {
     const html = fs.readFileSync(htmlPath, "utf8");
     const css = fs.readFileSync(cssPath, "utf8");
 
-    // Replace placeholders with actual connection data
+    // NOTE: Using this.connection for properties as defined in ImportWebview constructor
     const processedHtml = html
       .replace("{{connectionName}}", this.connection.name)
-      .replace("{{connectionEndpoint}}", this.connection.endpoint)
+      .replace("{{connectionEndpoint}}", this.connection.endpoint) // Assuming BaseWebview exposes endpoint/port on connection
       .replace("{{connectionPort}}", this.connection.port.toString())
       .replace("{{connectionNamespace}}", this.connection.namespace);
 
     return `
-      <style>${css}</style>
-      ${processedHtml}
-    `;
+            <style>${css}</style>
+            ${processedHtml}
+        `;
   }
+
   protected getCustomScript(): string {
     return `
       // Helper to get file extension
@@ -60,7 +62,23 @@ export class ImportWebview extends BaseWebview {
         return filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
       };
 
-      // --- Browse Button Handlers (New vs Existing) ---
+      // --- Tab Handlers (Needed for switching views) ---
+      document.getElementById('tab-new').addEventListener('click', () => {
+          document.getElementById('content-new').classList.add('active');
+          document.getElementById('content-existing').classList.remove('active');
+          document.getElementById('tab-new').classList.add('active');
+          document.getElementById('tab-existing').classList.remove('active');
+      });
+      document.getElementById('tab-existing').addEventListener('click', () => {
+          document.getElementById('content-existing').classList.add('active');
+          document.getElementById('content-new').classList.remove('active');
+          document.getElementById('tab-existing').classList.add('active');
+          document.getElementById('tab-new').classList.remove('active');
+      });
+      
+      document.getElementById('tab-new').click();
+
+      // --- Browse File Handlers ---
       document.getElementById('browse-new-file-btn').addEventListener('click', () => {
         sendMessage('browse', 'new-file-input');
       });
@@ -68,69 +86,54 @@ export class ImportWebview extends BaseWebview {
       document.getElementById('browse-existing-file-btn').addEventListener('click', () => {
         sendMessage('browse', 'existing-file-input');
       });
-      
-      // --- General Handlers ---
-      document.getElementById('cancel-btn').addEventListener('click', () => {
-        sendMessage('cancel', null);
+
+      // --- Schema/Table Handlers (LOAD EXISTING TAB) ---
+      // Search schema button handler (Load Existing) - This is the ONLY trigger now
+      document.addEventListener("click", (event) => {
+          if (event.target && event.target.id === "search-schema-btn-import") {
+              const filter = document.getElementById("schema-search-import")?.value?.trim();
+              sendMessage("load-schemas", {
+                  filter: filter || null,
+                  inputId: "schema-import"
+              });
+          }
       });
 
-      // --- Schema Loading Handlers ---
-
-      // Button handler for 'Create New Table' schema search
-      document.getElementById('search-new-schema-btn').addEventListener('click', () => {
-          const filter = document.getElementById('new-schema-input').value.trim();
-          // Send the target datalist ID ('new-schema-list') to the back-end
-          sendMessage('load-schemas', { filter: filter || null, inputId: 'new-schema-list' });
-      });
-
-      // Load schemas when the 'Load Existing' tab is activated (if needed)
-      document.getElementById('tab-existing').addEventListener('click', () => {
-        const schemaSelect = document.getElementById('schema-import');
-        if (schemaSelect && schemaSelect.options.length <= 1) {
-            schemaSelect.innerHTML = '<option value="">Loading schemas...</option>';
-            schemaSelect.disabled = true;
-            // Send the target select ID ('schema-import')
-            sendMessage('load-schemas', { filter: null, inputId: 'schema-import' }); 
-        }
-      });
-
-      // Schema selection handler for EXISTING Table Tab (triggers table loading)
+      // Schema selection handler (Load Existing)
       document.getElementById('schema-import').addEventListener('change', (e) => {
         const schema = e.target.value;
         const tableSelect = document.getElementById('table-import');
         if (schema) {
-            tableSelect.innerHTML = '<option value="">Loading tables...</option>';
-            tableSelect.disabled = true;
-            sendMessage('load-tables', { schema });
+          tableSelect.disabled = true;
+          sendMessage('load-tables', { schema });
         } else {
-            tableSelect.innerHTML = '<option value="">Select a schema first</option>';
-            tableSelect.disabled = true;
+          tableSelect.innerHTML = '<option value="">Select a schema first</option>';
+          tableSelect.disabled = true;
         }
       });
 
       // --- Import Logic for CREATE NEW Table Tab ---
       document.getElementById('create-import-btn').addEventListener('click', () => {
         const filePath = document.getElementById('new-file-input').value;
-        // Fetch schema from the INPUT field, allowing user entry
         const schema = document.getElementById('new-schema-input').value.trim(); 
         const tableName = document.getElementById('new-table-name').value.trim();
         const fileExt = getFileExtension(filePath);
         
         if (!filePath) {
-            showError('Please select a file to import');
-            return;
+          sendMessage('error', 'Please select a file to import');
+          return;
         }
         if (!schema) {
-             showError('Please select or enter a schema name');
-             return;
+          sendMessage('error', 'Please enter a schema name');
+          return;
         }
         if (!tableName) {
-            showError('Please enter a name for the new table');
-            return;
+          sendMessage('error', 'Please enter a table name');
+          return;
         }
         if (!['csv', 'json', 'txt'].includes(fileExt)) {
-            showError('Unsupported file format. Must be CSV, JSON, or TXT.');
-            return;
+          sendMessage('error', 'Unsupported file format. Must be CSV, JSON, or TXT');
+          return;
         }
 
         showLoading(true);
@@ -138,16 +141,16 @@ export class ImportWebview extends BaseWebview {
             mode: 'create',
             filePath: filePath,
             tableName: tableName,
-            schema: schema, // Use the user-defined schema
+            schema: schema,
             fileFormat: fileExt,
-            dataAction: 'replace' 
+            dataAction: 'replace' // Always replace for new table creation
         };
         
         sendMessage('import', data);
       });
 
 
-      // --- Import Logic for LOAD EXISTING Table Tab (Remains the same) ---
+      // --- Import Logic for LOAD EXISTING Table Tab ---
       document.getElementById('load-existing-btn').addEventListener('click', () => {
         const filePath = document.getElementById('existing-file-input').value;
         const schema = document.getElementById('schema-import').value;
@@ -156,15 +159,15 @@ export class ImportWebview extends BaseWebview {
         const fileExt = getFileExtension(filePath);
 
         if (!filePath) {
-            showError('Please select a file to import');
+            sendMessage('error', 'Please select a file to import');
             return;
         }
         if (!schema || !tableName) {
-            showError('Please select a target schema and table');
+            sendMessage('error', 'Please select a target schema and table');
             return;
         }
         if (!['csv', 'json', 'txt'].includes(fileExt)) {
-            showError('Unsupported file format. Must be CSV, JSON, or TXT.');
+            sendMessage('error', 'Unsupported file format. Must be CSV, JSON, or TXT.');
             return;
         }
         
@@ -181,68 +184,47 @@ export class ImportWebview extends BaseWebview {
         sendMessage('import', data);
       });
 
-      // Override handleMessage to include import-specific handlers for UI updates
+      // Override handleMessage to include import-specific handlers
       const originalHandleMessage = handleMessage;
       handleMessage = function(message) {
         switch (message.type) {
-            case 'file-selected':
-                // message.data contains { filePath, inputId }
-                const inputId = message.data.inputId;
-                document.getElementById(inputId).value = message.data.filePath;
-                break;
-            
-            case 'schemas-loaded':
-                // message.data now contains { schemas, inputId }
-                const targetId = message.data.inputId;
-                const schemaList = message.data.schemas;
 
-                // Handle <select> for "Load Existing" tab
-                if (targetId === 'schema-import') {
-                    const schemaSelect = document.getElementById(targetId);
-                    schemaSelect.innerHTML = '<option value="">Select a schema...</option>';
-                    schemaList.forEach(schema => {
-                        const option = document.createElement('option');
-                        option.value = schema;
-                        option.textContent = schema;
-                        schemaSelect.appendChild(option);
-                    });
-                    schemaSelect.disabled = false;
-                } 
-                // Handle <datalist> for "Create New" tab
-                else if (targetId === 'new-schema-list') {
-                    const dataList = document.getElementById(targetId);
-                    // Clear existing options
-                    dataList.innerHTML = '';
-                    schemaList.forEach(schema => {
-                        const option = document.createElement('option');
-                        option.value = schema;
-                        dataList.appendChild(option);
-                    });
-                }
-                break;
+          case 'schemas-loaded':
+            const schemaSelect = document.getElementById(message.data.inputId);
+            schemaSelect.innerHTML = '<option value="">Select a schema...</option>';
+            message.data.schemas.forEach(schema => {
+              const option = document.createElement('option');
+              option.value = schema;
+              option.textContent = schema;
+              schemaSelect.appendChild(option);
+            });
+            schemaSelect.disabled = false;
+            break;
 
-            case 'tables-loaded':
-                const tableSelect = document.getElementById('table-import');
-                if (tableSelect) {
-                    tableSelect.innerHTML = '<option value="">Select a table...</option>';
-                    message.data.forEach(table => {
-                        const option = document.createElement('option');
-                        option.value = table;
-                        option.textContent = table;
-                        tableSelect.appendChild(option);
-                    });
-                    tableSelect.disabled = false;
-                }
-                break;
+          case 'tables-loaded':
+            const tableSelect = document.getElementById('table-import');
+            tableSelect.innerHTML = '<option value="">Select a table...</option>';
+            message.data.forEach(table => {
+              const option = document.createElement('option');
+              option.value = table;
+              option.textContent = table;
+              tableSelect.appendChild(option);
+            });
+            tableSelect.disabled = false;
+            break;
 
-            default:
-                // Pass all other messages (success, error, loading) to the original handler
-                originalHandleMessage(message);
+          case 'file-selected':
+            const fileInput = document.getElementById(message.data.inputId);
+            fileInput.value = message.data.filePath;
+            break;
+
+          default:
+            originalHandleMessage(message);
         }
       };
     `;
-  }
-
+  } 
+  
   protected async handleMessage(message: any): Promise<void> {
     this.log(`[ImportWebview] Received message: ${JSON.stringify(message)}`);
     switch (message.type) {
@@ -254,9 +236,9 @@ export class ImportWebview extends BaseWebview {
             cancellable: false,
           },
           async () => {
-            // Pass the target input ID along so the front-end knows where to render the list
+            // Pass filter and target inputId from frontend message data
             await this.handleLoadSchemas(
-              message.data?.filter || null,
+              message.data?.filter,
               message.data?.inputId
             );
           }
@@ -266,7 +248,7 @@ export class ImportWebview extends BaseWebview {
         await vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,
-            title: `Loading tables...`,
+            title: `Loading tables for schema ${message.data.schema}...`,
             cancellable: false,
           },
           async () => {
@@ -275,7 +257,6 @@ export class ImportWebview extends BaseWebview {
         );
         break;
       case "browse":
-        // message.data now contains the ID of the input field to update
         await this.handleBrowse(message.data);
         break;
       case "import":
@@ -293,30 +274,26 @@ export class ImportWebview extends BaseWebview {
       case "cancel":
         this.dispose();
         break;
+      case "error":
+        vscode.window.showErrorMessage(message.data);
+        break;
       default:
         this.log(`[ImportWebview] Unknown message type: ${message.type}`);
         break;
     }
   }
 
+  // Implementation reused from ExportWebview
   private async handleLoadSchemas(
     filter?: string,
     inputId?: string
   ): Promise<void> {
     try {
-      // Placeholder logic: assuming this.connector.getSchemas exists
-      let schemas = [
-        "Schema1",
-        "Schema2",
-        "SQLUser",
-        this.connection.namespace,
-      ];
-
-      if (filter) {
-        schemas = schemas.filter((s) =>
-          s.toLowerCase().includes(filter.toLowerCase())
-        );
-      }
+      this.log(`[ImportWebview] Loading schemas... with filter: ${filter}`);
+      const schemas =
+        filter && filter.trim() !== ""
+          ? await this.connector.getSchemas(filter)
+          : await this.connector.getSchemas();
 
       // Post back the schemas along with the target ID for the JS to handle correctly
       this.postMessage("schemas-loaded", {
@@ -331,14 +308,12 @@ export class ImportWebview extends BaseWebview {
     }
   }
 
+  // Implementation reused from ExportWebview
   private async handleLoadTables(schema: string): Promise<void> {
     try {
-      // Placeholder logic: assuming this.connector.getTables exists
-      const tables = [
-        `${schema}.TableA`,
-        `${schema}.TableB`,
-        `${schema}.OldData`,
-      ];
+      this.log(`[ImportWebview] Loading tables for schema: ${schema}`);
+      const tables = await this.connector.getTables(schema);
+      this.log(`[ImportWebview] Loaded tables`);
       this.postMessage("tables-loaded", tables);
     } catch (error: any) {
       vscode.window.showErrorMessage(`Failed to load tables: ${error.message}`);
@@ -351,7 +326,6 @@ export class ImportWebview extends BaseWebview {
     const fileUri = await vscode.window.showOpenDialog({
       canSelectFiles: true,
       canSelectMany: false,
-      // Only allow CSV, JSON, TXT as per final requirement (ignoring XLSX/XLS from previous step)
       filters: {
         "Data Files": ["csv", "json", "txt"],
       },
@@ -359,7 +333,6 @@ export class ImportWebview extends BaseWebview {
     });
 
     if (fileUri && fileUri[0]) {
-      // Post the path back along with the input ID so the script knows which field to update
       this.postMessage("file-selected", {
         filePath: fileUri[0].fsPath,
         inputId,
@@ -371,10 +344,10 @@ export class ImportWebview extends BaseWebview {
     try {
       this.postMessage("loading", true);
 
-      // --- LOGIC TEST ---
+      // --- Placeholder Import Logic ---
       let status = `Mode: **${data.mode}**; Target: **${data.schema}.${data.tableName}**; Action: **${data.dataAction}**; File: ${data.filePath} (${data.fileFormat})`;
 
-      // Placeholder for actual import logic
+      // Simulate actual import logic
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       this.postMessage(
@@ -391,10 +364,10 @@ export class ImportWebview extends BaseWebview {
 }
 
 export interface ImportData {
-  mode: "create" | "load"; // New table or existing table
+  mode: "create" | "load";
   filePath: string;
   fileFormat: "csv" | "json" | "txt";
   schema: string;
   tableName: string;
-  dataAction: "append" | "replace"; // Append or replace data in the table
+  dataAction: "append" | "replace";
 }

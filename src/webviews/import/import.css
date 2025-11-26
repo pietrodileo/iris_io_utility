@@ -23,6 +23,46 @@
     font-family: var(--vscode-font-family);
 }
 
+/* --- Tabs Styling --- */
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.tab-button {
+    background-color: transparent;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--vscode-editorGroupHeader-tabsInactiveForeground);
+    font-weight: 500;
+    border-bottom: 3px solid transparent;
+    transition: color 0.2s, border-bottom-color 0.2s;
+    margin-bottom: -1px;
+    /* Overlap border */
+}
+
+.tab-button:hover {
+    color: var(--vscode-editorGroupHeader-tabsActiveForeground);
+}
+
+.tab-button.active {
+    color: var(--vscode-editorGroupHeader-tabsActiveForeground);
+    border-bottom-color: var(--vscode-textLink-foreground);
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+/* --- End Tabs Styling --- */
+
 .info-message {
     background-color: var(--vscode-textBlockQuote-background);
     border-left: 4px solid var(--vscode-textLink-foreground);
@@ -44,7 +84,8 @@
     color: var(--vscode-foreground);
 }
 
-.form-group input[type="text"] {
+.form-group input[type="text"],
+.form-group select {
     width: 100%;
     padding: 8px 10px;
     background-color: var(--vscode-input-background);
@@ -56,13 +97,19 @@
     box-sizing: border-box;
 }
 
-.form-group input[type="text"]:focus {
+.form-group input[type="text"]:focus,
+.form-group select:focus {
     outline: 1px solid var(--vscode-focusBorder);
     border-color: var(--vscode-focusBorder);
 }
 
 .form-group input[type="text"]::placeholder {
     color: var(--vscode-input-placeholderForeground);
+}
+
+.form-group select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .file-input-wrapper {
@@ -85,6 +132,24 @@
     margin-top: 4px;
     display: block;
     font-size: 12px;
+}
+
+.banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    background-color: var(--vscode-notifications-background);
+    border: 1px solid var(--vscode-notifications-border);
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--vscode-notifications-foreground);
+}
+
+.banner svg {
+    flex-shrink: 0;
+    opacity: 0.8;
 }
 
 .button-group {
@@ -128,102 +193,54 @@ button.secondary:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-.loading {
-    display: none;
-    margin-top: 20px;
-    padding: 15px;
-    background-color: var(--vscode-editor-inactiveSelectionBackground);
-    border-radius: 4px;
-    text-align: center;
+.schema-search-wrapper {
+    display: flex;
+    gap: 8px;
 }
 
-.loading p {
-    margin: 0;
-    color: var(--vscode-foreground);
-    font-size: 14px;
+.schema-search-wrapper input {
+    flex: 1;
 }
 
-.loading.active {
-    display: block;
+.schema-search-wrapper button {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    white-space: nowrap;
 }
 
-/* --- Styles for Tabbed Interface --- */
-
-/* Hide radio inputs, we use them for state management */
-.tabs input[type="radio"] {
-    display: none;
+select#schema-import.loading,
+/* Adjusted ID for Import */
+select#table-import.loading {
+    /* Adjusted ID for Import */
+    opacity: 0.6;
+    pointer-events: none;
 }
 
-/* Style for the tab labels */
-.tabs label.tab-label {
-    padding: 10px 15px;
-    cursor: pointer;
-    background-color: var(--vscode-editorGroupHeader-tabsBackground);
-    color: var(--vscode-tab-inactiveForeground);
-    border: 1px solid var(--vscode-panel-border);
-    border-bottom: none;
-    display: inline-block;
-    border-radius: 4px 4px 0 0;
-    margin-right: 2px;
-    transition: background-color 0.2s;
-    font-size: 14px;
+#schema-import:disabled,
+#table-import:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
-.tabs label.tab-label:hover {
-    background-color: var(--vscode-tab-hoverBackground);
-}
-
-/* Style for the active tab label */
-.tabs input[type="radio"]:checked+label.tab-label {
-    background-color: var(--vscode-editor-background);
-    /* Matches the panel background */
-    color: var(--vscode-tab-activeForeground);
-    font-weight: bold;
-    border-bottom: 1px solid var(--vscode-editor-background);
-    /* Hide the bottom border */
-    z-index: 10;
-}
-
-/* Style for the content container */
-.tab-content {
-    border: 1px solid var(--vscode-panel-border);
-    padding: 20px;
-    background-color: var(--vscode-editor-background);
-    margin-top: -1px;
-    /* Overlap with the tab borders */
-    border-radius: 0 4px 4px 4px;
-}
-
-/* Hide all tab panels by default */
-.tab-panel {
-    display: none;
-}
-
-/* Show the active tab panel */
-#tab-new:checked~.tab-content #content-new,
-#tab-existing:checked~.tab-content #content-existing {
-    display: block;
-}
-
-/* --- Radio Group Styling for Data Handling --- */
+/* Radio button specific styling for Data Action */
 .radio-group {
-    margin: 5px 0;
-    padding: 5px;
-    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
 }
 
 .radio-group input[type="radio"] {
+    width: auto;
     margin-right: 8px;
-    cursor: pointer;
+    /* Reset default input styles for radio */
+    padding: 0;
+    height: auto;
+    border: none;
 }
 
 .radio-group label {
-    font-weight: normal !important;
-    display: inline-block !important;
+    margin-bottom: 0;
+    font-weight: normal;
+    font-size: 13px;
     cursor: pointer;
-    margin-bottom: 0 !important;
-}
-
-.data-handling-group .radio-group .field-hint {
-    margin-left: 20px;
 }
