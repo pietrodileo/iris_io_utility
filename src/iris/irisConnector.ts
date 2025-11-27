@@ -515,6 +515,426 @@ export class IrisConnector {
     }
   }
 
+  // ---------- File Analysis & Import Operations ----------
+
+  /**
+   * Analyze a file and infer column types
+   */
+  async analyzeFile(
+    filePath: string,
+    fileFormat: string
+  ): Promise<{ columns: ColumnAnalysis[] }> {
+    this.log(`[IrisConnector] Analyzing file: ${filePath} (${fileFormat})`);
+
+    const fs = require("fs");
+    let columns: ColumnAnalysis[] = [];
+
+    try {
+      if (fileFormat === "csv" || fileFormat === "txt") {
+        columns = await this.analyzeCsvFile(filePath);
+      } else if (fileFormat === "json") {
+        columns = await this.analyzeJsonFile(filePath);
+      } else if (fileFormat === "xlsx" || fileFormat === "xls") {
+        columns = await this.analyzeExcelFile(filePath);
+      } else {
+        throw new Error(`Unsupported file format: ${fileFormat}`);
+      }
+
+      this.log(
+        `[IrisConnector] Analysis complete: ${columns.length} columns found`
+      );
+      return { columns };
+    } catch (error: any) {
+      this.log(`[IrisConnector] Analysis failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  private async analyzeCsvFile(filePath: string): Promise<ColumnAnalysis[]> {
+    const fs = require("fs");
+    const content = fs.readFileSync(filePath, "utf8");
+
+    // Split by lines and filter empty
+    const lines = content.split(/\r?\n/).filter((line: string) => line.trim() !== "");
+
+    if (lines.length === 0) {
+      throw new Error("File is empty");
+    }
+
+    // Detect delimiter (comma, semicolon, or tab)
+    const firstLine = lines[0];
+    const delimiter = firstLine.includes("\t")
+      ? "\t"
+      : firstLine.includes(";")
+      ? ";"
+      : ",";
+
+    // Parse headers
+    const headers = this.parseCsvLine(lines[0], delimiter);
+
+    // Get sample rows (up to 100 for analysis)
+    const sampleSize = Math.min(100, lines.length - 1);
+    const sampleRows = lines
+      .slice(1, sampleSize + 1)
+      .map((line: string) => this.parseCsvLine(line, delimiter));
+
+    // Analyze each column
+    return headers.map((header, index) => {
+      const originalName = header;
+      const sanitizedName = this.sanitizeColumnName(header);
+      const values = sampleRows
+        .map((row: any[]) => row[index])
+        .filter((v: string) => v && v.trim() !== "");
+
+      return {
+        name: sanitizedName,
+        originalName,
+        inferredType: this.inferColumnType(values),
+        sampleValue: values[0] || "NULL",
+      };
+    });
+  }
+
+  private async analyzeJsonFile(filePath: string): Promise<ColumnAnalysis[]> {
+    const fs = require("fs");
+    const content = fs.readFileSync(filePath, "utf8");
+    const json = JSON.parse(content);
+
+    // Handle both array and single object
+    const sample = Array.isArray(json) ? json[0] : json;
+
+    if (!sample || typeof sample !== "object") {
+      throw new Error(
+        "Invalid JSON structure: expected object or array of objects"
+      );
+    }
+
+    return Object.entries(sample).map(([key, value]) => ({
+      name: this.sanitizeColumnName(key),
+      originalName: key,
+      inferredType: this.inferTypeFromValue(value),
+      sampleValue: String(value).substring(0, 50),
+    }));
+  }
+
+  private async analyzeExcelFile(filePath: string): Promise<ColumnAnalysis[]> {
+    // This requires xlsx library: npm install xlsx
+    try {
+      const XLSX = require("xlsx");
+      const workbook = XLSX.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+
+      // Convert to JSON
+      const data = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+      if (data.length === 0) {
+        throw new Error("Excel file is empty");
+      }
+
+      const sample = data[0] as Record<string, any>;
+      const sampleRows = data.slice(0, 100);
+
+      return Object.keys(sample).map((key) => {
+        const values = sampleRows
+          .map((row: { [x: string]: any; }) => row[key])
+          .filter((v: string) => v !== "");
+
+        return {
+          name: this.sanitizeColumnName(key),
+          originalName: key,
+          inferredType: this.inferColumnType(values.map(String)),
+          sampleValue: String(values[0] || "NULL").substring(0, 50),
+        };
+      });
+    } catch (error: any) {
+      if (error.code === "MODULE_NOT_FOUND") {
+        throw new Error(
+          'Excel support requires "xlsx" package. Please install it: npm install xlsx'
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Parse a CSV line handling quoted fields
+   */
+  private parseCsvLine(line: string, delimiter: string): string[] {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === delimiter && !inQuotes) {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+
+    return result;
+  }
+
+  /**
+   * Sanitize column name for SQL compatibility
+   */
+  private sanitizeColumnName(name: string): string {
+    return name
+      .trim()
+      .replace(/[^A-Za-z0-9_]/g, "_")
+      .replace(/^(\d)/, "_$1")
+      .substring(0, 128);
+  }
+
+  /**
+   * Infer SQL type from sample values
+   */
+  private inferColumnType(values: string[]): string {
+    if (values.length === 0) {return "VARCHAR(255)";}
+
+    const nonEmpty = values.filter((v) => v && v.trim() !== "");
+    if (nonEmpty.length === 0) {return "VARCHAR(255)";}
+
+    // Check for integer
+    if (nonEmpty.every((v) => /^-?\d+$/.test(v))) {
+      const max = Math.max(...nonEmpty.map((v) => Math.abs(parseInt(v))));
+      return max > 2147483647 ? "BIGINT" : "INTEGER";
+    }
+
+    // Check for decimal/numeric
+    if (nonEmpty.every((v) => /^-?\d+(\.\d+)?$/.test(v))) {
+      return "DOUBLE";
+    }
+
+    // Check for date
+    if (nonEmpty.every((v) => /^\d{4}-\d{2}-\d{2}/.test(v))) {
+      // Check if includes time
+      if (nonEmpty.some((v) => /\d{2}:\d{2}:\d{2}/.test(v))) {
+        return "TIMESTAMP";
+      }
+      return "DATE";
+    }
+
+    // Check for boolean
+    if (nonEmpty.every((v) => /^(true|false|0|1|yes|no)$/i.test(v))) {
+      return "BOOLEAN";
+    }
+
+    // Check string length
+    const maxLength = Math.max(...nonEmpty.map((v) => v.length));
+    if (maxLength > 4000) {
+      return "CLOB";
+    } else if (maxLength > 255) {
+      return "VARCHAR(4000)";
+    }
+
+    return "VARCHAR(255)";
+  }
+
+  /**
+   * Infer type from a JSON value
+   */
+  private inferTypeFromValue(value: any): string {
+    if (value === null || value === undefined) {return "VARCHAR(255)";}
+
+    if (typeof value === "number") {
+      return Number.isInteger(value) ? "INTEGER" : "DOUBLE";
+    }
+
+    if (typeof value === "boolean") {return "BOOLEAN";}
+
+    if (typeof value === "string") {
+      if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+        return /\d{2}:\d{2}:\d{2}/.test(value) ? "TIMESTAMP" : "DATE";
+      }
+      return value.length > 255 ? "VARCHAR(4000)" : "VARCHAR(255)";
+    }
+
+    if (typeof value === "object") {return "CLOB";} // Store as JSON string
+
+    return "VARCHAR(255)";
+  }
+
+  /**
+   * Import data into a new table
+   */
+  async importToNewTable(
+    filePath: string,
+    tableName: string,
+    schema: string,
+    fileFormat: string,
+    columnTypes?: Record<string, string>
+  ): Promise<void> {
+    this.log(`[IrisConnector] Importing to new table: ${schema}.${tableName}`);
+
+    try {
+      // 1. Analyze file to get columns
+      const analysis = await this.analyzeFile(filePath, fileFormat);
+
+      // 2. Build column definitions
+      const columns: Record<string, string> = {};
+      analysis.columns.forEach((col) => {
+        columns[col.name] = columnTypes?.[col.name] || col.inferredType;
+      });
+
+      // 3. Create table
+      await this.createTable(tableName, columns, [], schema);
+      this.log(`[IrisConnector] Table created: ${schema}.${tableName}`);
+
+      // 4. Import data
+      await this.importDataToTable(
+        filePath,
+        tableName,
+        schema,
+        fileFormat,
+        analysis.columns
+      );
+
+      this.log(`[IrisConnector] Import complete`);
+    } catch (error: any) {
+      this.log(`[IrisConnector] Import failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Import data into an existing table
+   */
+  async importToExistingTable(
+    filePath: string,
+    tableName: string,
+    schema: string,
+    fileFormat: string,
+    dataAction: "append" | "replace"
+  ): Promise<void> {
+    this.log(
+      `[IrisConnector] Importing to existing table: ${schema}.${tableName} (${dataAction})`
+    );
+
+    try {
+      // 1. If replace, truncate table
+      if (dataAction === "replace") {
+        await this.execute(`TRUNCATE TABLE ${schema}.${tableName}`);
+        this.log(`[IrisConnector] Table truncated`);
+      }
+
+      // 2. Get table structure
+      const tableInfo = await this.describeTable(tableName, schema);
+      const columns = tableInfo.columns.map((c) => ({
+        name: c.COLUMN_NAME,
+        originalName: c.COLUMN_NAME,
+        inferredType: c.DATA_TYPE,
+        sampleValue: "",
+      }));
+
+      // 3. Import data
+      await this.importDataToTable(
+        filePath,
+        tableName,
+        schema,
+        fileFormat,
+        columns
+      );
+
+      this.log(`[IrisConnector] Import complete`);
+    } catch (error: any) {
+      this.log(`[IrisConnector] Import failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Import data from file to table (internal method)
+   */
+  private async importDataToTable(
+    filePath: string,
+    tableName: string,
+    schema: string,
+    fileFormat: string,
+    columns: ColumnAnalysis[]
+  ): Promise<void> {
+    const fs = require("fs");
+
+    // Read and parse file based on format
+    let rows: Record<string, any>[] = [];
+
+    if (fileFormat === "csv" || fileFormat === "txt") {
+      const content = fs.readFileSync(filePath, "utf8");
+      const lines = content.split(/\r?\n/).filter((line: string) => line.trim() !== "");
+      const delimiter = lines[0].includes("\t")
+        ? "\t"
+        : lines[0].includes(";")
+        ? ";"
+        : ",";
+
+      // Skip header
+      for (let i = 1; i < lines.length; i++) {
+        const values = this.parseCsvLine(lines[i], delimiter);
+        const row: Record<string, any> = {};
+
+        columns.forEach((col, index) => {
+          row[col.name] = values[index] || null;
+        });
+
+        rows.push(row);
+      }
+    } else if (fileFormat === "json") {
+      const content = fs.readFileSync(filePath, "utf8");
+      const json = JSON.parse(content);
+      rows = Array.isArray(json) ? json : [json];
+
+      // Map original keys to sanitized column names
+      rows = rows.map((row) => {
+        const mappedRow: Record<string, any> = {};
+        columns.forEach((col) => {
+          mappedRow[col.name] = row[col.originalName];
+        });
+        return mappedRow;
+      });
+    } else if (fileFormat === "xlsx" || fileFormat === "xls") {
+      const XLSX = require("xlsx");
+      const workbook = XLSX.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet);
+
+      // Map to sanitized column names
+      rows = data.map((row: any) => {
+        const mappedRow: Record<string, any> = {};
+        columns.forEach((col) => {
+          mappedRow[col.name] = row[col.originalName];
+        });
+        return mappedRow;
+      });
+    }
+
+    // Insert rows in batches of 100
+    const batchSize = 100;
+    let inserted = 0;
+
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+      const count = await this.insertMany(tableName, batch, schema);
+      inserted += count;
+
+      this.log(`[IrisConnector] Inserted ${inserted}/${rows.length} rows`);
+    }
+
+    this.log(`[IrisConnector] Total rows inserted: ${inserted}`);
+  }
+
   /**
    * Log message with timestamp
    */
@@ -522,4 +942,11 @@ export class IrisConnector {
     const timestamp = new Date().toISOString();
     this.outputChannel.appendLine(`[${timestamp}] ${message}`);
   }
+}
+
+interface ColumnAnalysis {
+  name: string;
+  originalName: string;
+  inferredType: string;
+  sampleValue: string;
 }
