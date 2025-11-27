@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import { IrisConnector } from "./irisConnector";
 import { IrisConnectionConfig } from "./models/connection/irisConnectionConfig";
 import { Connection } from "../models/baseConnection";
+import type { ConnectionType } from "./models/connection/irisConnectionConfig";
+import { OdbcDriverChecker } from "../iris/models/connection/odbcDriverChecker";
 
 /**
  * Manages active IRIS connections
@@ -47,14 +49,33 @@ export class ConnectionManager {
     this.log(`[ConnectionManager]   User: ${connection.user}`);
 
     try {
+      this.log(`[ConnectionManager] Testing if ODBC drivers are available...`);
+      // --- Perform ODBC check ---
+      const driverChecker = new OdbcDriverChecker(this.outputChannel);
+      const odbcAvailable = await driverChecker.checkOdbcDrivers();
+      let connectionType: ConnectionType = "native"; // default to native
+      if (odbcAvailable) {
+        this.log(`[ConnectionManager] ODBC drivers available`);
+        connectionType = "odbc";
+      } else {
+        this.log(
+          `[ConnectionManager] ODBC drivers not available. Proceeding with native connection...`
+        );
+      }
       const config: IrisConnectionConfig = {
         host: connection.endpoint,
         port: connection.port,
         ns: connection.namespace,
         user: connection.user,
         pwd: connection.password,
+        connectionType: connectionType,
       };
-      this.log(`[ConnectionManager] Config: ${JSON.stringify({ ...config, pwd: "***" })}`);
+      this.log(
+        `[ConnectionManager] Config: ${JSON.stringify({
+          ...config,
+          pwd: "***",
+        })}`
+      );
 
       const connector = new IrisConnector(config, this.outputChannel);
 
@@ -78,9 +99,26 @@ export class ConnectionManager {
         return false;
       }
     } catch (error: any) {
-      this.log(`[ConnectionManager] Error: ${error.message || "Unknown error"}`);
-      this.log(`[ConnectionManager] Stack trace: ${error.stack || "No stack trace"}`);
+      this.log(
+        `[ConnectionManager] Error: ${error.message || "Unknown error"}`
+      );
+      this.log(
+        `[ConnectionManager] Stack trace: ${error.stack || "No stack trace"}`
+      );
       throw error;
+    }
+  }
+
+  /**
+   * Check if InterSystems ODBC drivers are installed
+   */
+  private async odbcDriversAvailable(): Promise<boolean> {
+    try {
+      const odbc = require("odbc");
+      const drivers: string[] = await odbc.drivers();
+      return drivers.some((d) => d.toLowerCase().includes("intersystems"));
+    } catch {
+      return false;
     }
   }
 

@@ -93,6 +93,11 @@
         "command": "irisIO.copyConnectionInfo",
         "title": "Copy Connection Info",
         "icon": "$(copy)"
+      },
+      {
+        "command": "irisIO.checkOdbcDrivers",
+        "title": "Check ODBC Drivers",
+        "icon": "$(gear)"
       }
     ],
     "menus": {
@@ -101,6 +106,11 @@
           "command": "irisIO.addConnection",
           "when": "view == irisIOConnections",
           "group": "navigation"
+        },
+        {
+          "command": "irisIO.checkOdbcDrivers",
+          "when": "view == irisIOConnections",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -181,6 +191,8 @@
     "typescript-eslint": "^8.46.3"
   },
   "dependencies": {
-    "@intersystems/intersystems-iris-native": "^2.0.3"
+    "@intersystems/intersystems-iris-native": "^2.0.3",
+    "child_process": "^1.0.2",
+    "odbc": "^2.4.9"
   }
 }

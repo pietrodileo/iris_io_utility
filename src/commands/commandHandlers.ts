@@ -4,6 +4,8 @@ import { ConnectionsProvider } from "../providers/connectionsProvider";
 import { ConnectionManager } from "../iris/connectionManager";
 import { ConnectionInputs } from "./connectionInputs";
 import { WebviewManager } from "../webviews/webViewManager";
+import { OdbcDriverChecker } from "../iris/models/connection/odbcDriverChecker";
+const odbc = require("odbc");
 
 /**
  * Handles all command registrations
@@ -31,6 +33,7 @@ export class CommandHandlers {
     this.registerImportTables();
     this.registerExportTables();
     this.registerCopyConnectionInfo();
+    this.registerCheckOdbcDrivers();
   }
 
   private registerAddConnection(): void {
@@ -280,20 +283,25 @@ export class CommandHandlers {
   /* ================== Table Import/Export ==================== */
   private registerImportTables(): void {
     this.context.subscriptions.push(
-      vscode.commands.registerCommand("irisIO.importTables",async (item: any) => {
-        if (!item?.connection) {
-          vscode.window.showErrorMessage("Invalid connection item");
-          return;
+      vscode.commands.registerCommand(
+        "irisIO.importTables",
+        async (item: any) => {
+          if (!item?.connection) {
+            vscode.window.showErrorMessage("Invalid connection item");
+            return;
+          }
+          const connection = item.connection;
+          this.webviewManager.show(connection, "import");
         }
-        const connection = item.connection;
-        this.webviewManager.show(connection, "import");
-      })
+      )
     );
   }
 
   private registerExportTables(): void {
     this.context.subscriptions.push(
-      vscode.commands.registerCommand("irisIO.exportTables",async (item: any) => {
+      vscode.commands.registerCommand(
+        "irisIO.exportTables",
+        async (item: any) => {
           if (!item?.connection) {
             vscode.window.showErrorMessage("Invalid connection item");
             return;
@@ -340,14 +348,45 @@ export class CommandHandlers {
           vscode.window.showInformationMessage(
             `Copied connection info for "${connection.name}" to clipboard`
           );
-
-          this.outputChannel.appendLine(`\n${"=".repeat(60)}`);
-          this.outputChannel.appendLine(
-            `[${new Date().toISOString()}] Copied connection info to clipboard`
-          );
-          this.outputChannel.appendLine(info);
         }
       )
+    );
+  }
+
+  private registerCheckOdbcDrivers(): void {
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand("irisIO.checkOdbcDrivers", async () => {
+        try {
+          // --- Perform ODBC check ---
+          const driverChecker = new OdbcDriverChecker(this.outputChannel);
+          const driversAvailable = await driverChecker.checkOdbcDrivers();
+
+          if (driversAvailable) {
+            vscode.window.showInformationMessage(
+              "InterSystems IRIS ODBC drivers are installed on this machine."
+            );
+          } else {
+            vscode.window
+              .showWarningMessage(
+                "InterSystems IRIS ODBC drivers are NOT installed.\nClick here to download.",
+                "Download Drivers"
+              )
+              .then((selection) => {
+                if (selection === "Download Drivers") {
+                  vscode.env.openExternal(
+                    vscode.Uri.parse(
+                      "https://intersystems-community.github.io/iris-driver-distribution/"
+                    )
+                  );
+                }
+              });
+          }
+        } catch (err: any) {
+          vscode.window.showErrorMessage(
+            `Error while checking ODBC drivers: ${err?.message || err}`
+          );
+        }
+      })
     );
   }
 }

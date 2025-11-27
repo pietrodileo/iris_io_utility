@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { SQLStatement } from "./models/sql/sqlClient";
 import { IRISStatementType, SQLResult } from "./models/sql/sqlTypes";
+import * as odbc from "odbc";
 
 /**
  * IRIS SQL Implementation
@@ -105,6 +106,37 @@ export class IRISql {
    * Log message with timestamp
    */
   private log(message: string): void {
+    const timestamp = new Date().toISOString();
+    this.outputChannel.appendLine(`[${timestamp}] ${message}`);
+  }
+}
+
+
+export class OdbcSqlClient {
+  constructor(
+    private connection: any,
+    private outputChannel: vscode.OutputChannel
+  ) {}
+
+  async query(sql: string, params: any[] = []): Promise<any[]> {
+    try {
+      const result = await this.connection.query(sql, params);
+      return result;
+    } catch (err: any) {
+      this.log(`[OdbcSqlClient] Error: ${err.message}`);
+      throw err;
+    }
+  }
+
+  async execute(sql: string, params: any[] = []): Promise<number> {
+    const result = await this.connection.query(sql, params);
+    return result.count || result.length || 0;
+  }
+
+  /**
+   * Log message with timestamp
+   */
+  public log(message: string): void {
     const timestamp = new Date().toISOString();
     this.outputChannel.appendLine(`[${timestamp}] ${message}`);
   }

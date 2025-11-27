@@ -5,4 +5,8 @@ export interface IrisConnectionConfig {
   ns: string;
   user: string;
   pwd: string;
+  connectionType: ConnectionType;
+  odbcDsn?: string;
 }
+
+export type ConnectionType = "native" | "odbc" ;
