@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 const irisnative = require("@intersystems/intersystems-iris-native");
 import type { IrisConnectionConfig, ConnectionType } from "./models/connection/irisConnectionConfig";
 import {TableDescription,SchemaTable,} from "./models/connection/irisTables";
-import { IRISql, OdbcSqlClient } from "./irisSQL";
+import { ISqlClient, createSqlClient } from "./irisSQL";
 import { IrisInference, ColumnAnalysis } from "./models/sql/inference";
 import odbc from "odbc";
 
@@ -16,7 +16,7 @@ import odbc from "odbc";
 export class IrisConnector extends IrisInference {
   private connection: any;
   private iris: any;
-  private sql!: IRISql | OdbcSqlClient;
+  private sql!: ISqlClient; // Unified SQL Client Interface (odbc or native)
 
   public host: string;
   public port: number;
@@ -41,63 +41,123 @@ export class IrisConnector extends IrisInference {
 
   // ---------- Connection Management ----------
   async connect(): Promise<void> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        if (this.isConnected()) {
-          this.log("[IrisConnector] Already connected");
-          resolve();
-          return;
-        }
-  
-        this.log(`[IrisConnector] Creating connection (${this.connectionType})...`);
-
-        if (this.connectionType === "native") {
-          // Native
-          const config: IrisConnectionConfig = {
-            host: this.host,
-            port: this.port,
-            ns: this.namespace,
-            user: this.username,
-            pwd: this.password,
-            connectionType: this.connectionType,
-          };
-          this.connection = await irisnative.createConnection(config);
-          this.iris = this.connection.createIris();
-          this.log("[IrisConnector] Initializing SQL client...");
-          this.sql = new IRISql(this.iris, this.outputChannel);
-          this.log(`[IrisConnector] SQL client initialized: ${!!this.sql}`);
-        } else {
-          // ODBC
-          const connStr = `
-            DRIVER={InterSystems IRIS};SERVER=${this.host};PORT=${this.port};DATABASE=${this.namespace};UID=${this.username};PWD=${this.password};
-          `;
-          this.log(`[IrisConnector] ODBC connection string: ${connStr}`);
-          this.connection = await odbc.connect(connStr);
-          this.iris = this.connection; // unify interface
-          this.log("[IrisConnector] Initializing ODBC SQL client...");
-          this.sql = new OdbcSqlClient(this.connection, this.outputChannel);
-          this.log(`[IrisConnector] SQL client initialized: ${!!this.sql}`);
-        }
-        this.log("[IrisConnector] Connected successfully");
-        resolve();
-      } catch (err: any) {
-        console.error("[IrisConnector] Connection failed:", err.message);
-        reject(err);
+    try {
+      if (this.isConnected()) {
+        this.log("[IrisConnector] Already connected");
+        return;
       }
-    });
+
+      this.log(
+        `[IrisConnector] Creating ${this.connectionType.toUpperCase()} connection...`
+      );
+
+      if (this.connectionType === "native") {
+        await this.connectNative();
+      } else if (this.connectionType === "odbc") {
+        await this.connectOdbc();
+      } else {
+        throw new Error(`Unknown connection type: ${this.connectionType}`);
+      }
+
+      this.log("[IrisConnector] Connected successfully");
+    } catch (err: any) {
+      this.log(`[IrisConnector] Connection failed: ${err.message}`);
+      throw err;
+    }
+  }
+
+  private async connectNative(): Promise<void> {
+    const config: IrisConnectionConfig = {
+      host: this.host,
+      port: this.port,
+      ns: this.namespace,
+      user: this.username,
+      pwd: this.password,
+      connectionType: "native",
+    };
+
+    this.connection = irisnative.createConnection(config);
+    this.iris = this.connection.createIris();
+
+    // Create Native SQL client
+    this.sql = createSqlClient("native", this.connection, this.outputChannel);
+
+    this.log("[IrisConnector] Native SDK initialized");
+  }
+
+  private async connectOdbc(): Promise<void> {
+    // Build ODBC connection string
+    try {
+      this.log(
+        `[IrisConnector] ODBC connecting to ${this.host}:${this.port}/${this.namespace}...`
+      );
+
+      // Form the connection string
+      const connStr = [
+        `DRIVER={InterSystems IRIS ODBC35}`,
+        `SERVER=${this.host}`,
+        `PORT=${this.port}`,
+        `DATABASE=${this.namespace}`,
+        `UID=${this.username}`,
+        `PWD=${this.password}`,
+      ].join(";");
+
+      // Connect via ODBC
+      this.connection = await odbc.connect(connStr);
+
+      this.log(`[IrisConnector] ODBC connection successful.`);
+    } catch (error: any) {
+      // Log the high-level error
+      this.log(`[IrisConnector] Connection failed: ${error.message}`);
+
+      // Log the detailed ODBC errors if they exist
+      if (error.odbcErrors) {
+        this.log("[IrisConnector] ODBC Driver Error Details:");
+        for (const odbcError of error.odbcErrors) {
+          this.log(
+            `  - State: ${odbcError.state}, Code: ${odbcError.code}, Message: ${odbcError.message}`
+          );
+        }
+      }
+
+      // Re-throw or handle the error as per your application's logic
+      throw error;
+    }
   }
 
   isConnected(): boolean {
-    return this.iris !== null && this.iris !== undefined;
+    if (this.connectionType === "native") {
+      // Return true if the native connection object exists
+      return this.iris !== null && this.iris !== undefined;
+    }
+
+    if (this.connectionType === "odbc") {
+      // Return true if the odbc connection object exists AND is connected
+      return (
+        this.connection !== null &&
+        this.connection !== undefined &&
+        this.connection.connected === true
+      );
+    }
+
+    // If connectionType is unknown or not set, it's not connected.
+    return false;
   }
 
   close(): void {
     if (this.connection) {
       try {
-        this.connection.close();
+        if (this.connectionType === "odbc") {
+          // ODBC close is async, but we'll call it synchronously
+          this.connection.close().catch((err: any) => {
+            this.log(`[IrisConnector] Error closing ODBC: ${err.message}`);
+          });
+        } else {
+          this.connection.close();
+        }
         this.log("[IrisConnector] Connection closed");
       } catch (error: any) {
-        console.error("[IrisConnector] Error closing:", error.message);
+        this.log(`[IrisConnector] Error closing: ${error.message}`);
       }
       this.connection = null;
       this.iris = null;
@@ -106,22 +166,35 @@ export class IrisConnector extends IrisInference {
   }
 
   async test(): Promise<boolean> {
+    this.log("[IrisConnector] Starting connection test...");
+    if (!this.isConnected()) {
+      this.log("[IrisConnector] Not connected (pre-query check), test failed");
+      return false;
+    }
+
     try {
-      this.log("[IrisConnector] Starting connection test...");
-      if (!this.isConnected()) {
-        this.log("[IrisConnector] Not connected, test failed");
-        return false;
-      }
+      // Execute a simple query to confirm the connection is alive
+      const result = await this.connection.query("SELECT 1");
+      this.log(
+        `[IrisConnector] Test query successful. Result count: ${result.count}`
+      );
       return true;
     } catch (error: any) {
-      console.error("[IrisConnector] Test failed with error:", error.message);
-      console.error("[IrisConnector] Error details:", error);
+      this.log(`[IrisConnector] Test query failed: ${error.message}`);
+      // Log the detailed ODBC errors if they exist
+      if (error.odbcErrors) {
+        for (const odbcError of error.odbcErrors) {
+          this.log(`  - ODBC Error: ${odbcError.message}`);
+        }
+      }
       return false;
     }
   }
 
   toString(): string {
-    return `IRIS connection [${this.username}@${this.host}:${this.port}/${this.namespace}]`;
+    return `IRIS connection [${this.connectionType.toUpperCase()}] [${
+      this.username
+    }@${this.host}:${this.port}/${this.namespace}]`;
   }
 
   // ---------- Query Execution ----------
@@ -158,7 +231,7 @@ export class IrisConnector extends IrisInference {
     sql += " ORDER BY TABLE_SCHEMA ";
 
     const results = await this.query(sql, parameters);
-    this.log(`[IrisConnector] Got ${results.length} schemas`);
+    this.log(`[Failed to load schemas: SQL client not initialized. Call connect() first.IrisConnector] Got ${results.length} schemas`);
     return results.map((row) => row.TABLE_SCHEMA);
   }
 
