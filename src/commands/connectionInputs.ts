@@ -34,7 +34,7 @@ export class ConnectionInputs {
     }
 
     const endpoint = await vscode.window.showInputBox({
-      prompt: "Enter endpoint",
+      prompt: "Enter hostname or IP",
       placeHolder: "localhost or 192.168.1.100",
       value: existingConnection?.endpoint || "localhost",
       ignoreFocusOut: true,
@@ -55,10 +55,10 @@ export class ConnectionInputs {
       return undefined;
     }
 
-    const portString = await vscode.window.showInputBox({
-      prompt: "Enter port",
+    const superServerPortString = await vscode.window.showInputBox({
+      prompt: "Enter Superserver port",
       placeHolder: "52773",
-      value: existingConnection?.port?.toString() || "52773",
+      value: existingConnection?.superServerPort?.toString() || "52773",
       ignoreFocusOut: true,
       validateInput: (value) => {
         if (!value || value.trim().length === 0) {
@@ -72,7 +72,28 @@ export class ConnectionInputs {
       },
     });
 
-    if (!portString) {
+    if (!superServerPortString) {
+      return undefined;
+    }
+
+    const webServerPortString = await vscode.window.showInputBox({
+      prompt: "Enter Web Server port",
+      placeHolder: "1972",
+      value: existingConnection?.webServerPort?.toString() || "1972",
+      ignoreFocusOut: true,
+      validateInput: (value) => {
+        if (!value || value.trim().length === 0) {
+          return "Port cannot be empty";
+        }
+        const portNum = parseInt(value);
+        if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+          return "Please enter a valid port number (1-65535)";
+        }
+        return null;
+      },
+    });
+
+    if (!webServerPortString) {
       return undefined;
     }
 
@@ -136,13 +157,14 @@ export class ConnectionInputs {
       placeHolder: "Development database",
       value: existingConnection?.description,
       ignoreFocusOut: true,
-      // No validation for description as it's optional
+      // No validation for description since it's optional
     });
 
     return {
       name: name.trim(),
       endpoint: endpoint.trim(),
-      port: parseInt(portString),
+      superServerPort: parseInt(superServerPortString),
+      webServerPort: parseInt(webServerPortString),
       namespace: namespace.trim(),
       user: user.trim(),
       password: password, // Don't trim password - might have intentional spaces

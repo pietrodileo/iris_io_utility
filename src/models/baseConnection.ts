@@ -4,11 +4,13 @@
 export interface ConnectionData {
   name: string;
   endpoint: string;
-  port: number;
+  superServerPort: number;
+  webServerPort: number;
   namespace: string;
   user: string;
   password: string;
   description?: string;
+  isOdbc?: boolean;
 }
 
 /**

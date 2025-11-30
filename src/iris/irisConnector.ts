@@ -19,7 +19,8 @@ export class IrisConnector extends IrisInference {
   private sql!: ISqlClient; // Unified SQL Client Interface (odbc or native)
 
   public host: string;
-  public port: number;
+  public superServerPort: number;
+  public webServerPort: number;
   public namespace: string;
   public username: string;
   private password: string;
@@ -31,8 +32,10 @@ export class IrisConnector extends IrisInference {
   ) {
     super(outputChannel);
     this.host = config.host;
-    this.port =
-      typeof config.port === "string" ? parseInt(config.port) : config.port;
+    this.superServerPort = 
+      typeof config.superServerPort === "string" ? parseInt(config.superServerPort) : config.superServerPort;
+    this.webServerPort =
+      typeof config.webServerPort === "string" ? parseInt(config.webServerPort) : config.webServerPort;
     this.namespace = config.ns;
     this.username = config.user;
     this.password = config.pwd;
@@ -67,13 +70,16 @@ export class IrisConnector extends IrisInference {
   }
 
   private async connectNative(): Promise<void> {
-    const config: IrisConnectionConfig = {
+    // For native connection, use webServerPort
+    this.log(
+      `[IrisConnector] Native connecting to ${this.host}:${this.webServerPort}/${this.namespace}...`
+    );
+    const config = {
       host: this.host,
-      port: this.port,
+      port: this.webServerPort,
       ns: this.namespace,
       user: this.username,
       pwd: this.password,
-      connectionType: "native",
     };
 
     this.connection = irisnative.createConnection(config);
@@ -88,15 +94,16 @@ export class IrisConnector extends IrisInference {
   private async connectOdbc(): Promise<void> {
     // Build ODBC connection string
     try {
+      // For ODBC connection, use superServerPort
       this.log(
-        `[IrisConnector] ODBC connecting to ${this.host}:${this.port}/${this.namespace}...`
+        `[IrisConnector] ODBC connecting to ${this.host}:${this.superServerPort}/${this.namespace}...`
       );
 
       // Form the connection string
       const connStr = [
         `DRIVER={InterSystems IRIS ODBC35}`,
         `SERVER=${this.host}`,
-        `PORT=${this.port}`,
+        `PORT=${this.superServerPort}`,
         `DATABASE=${this.namespace}`,
         `UID=${this.username}`,
         `PWD=${this.password}`,
@@ -104,6 +111,9 @@ export class IrisConnector extends IrisInference {
 
       // Connect via ODBC
       this.connection = await odbc.connect(connStr);
+      
+      // Create ODBC SQL client
+      this.sql = createSqlClient("odbc", this.connection, this.outputChannel);
 
       this.log(`[IrisConnector] ODBC connection successful.`);
     } catch (error: any) {
@@ -192,9 +202,17 @@ export class IrisConnector extends IrisInference {
   }
 
   toString(): string {
-    return `IRIS connection [${this.connectionType.toUpperCase()}] [${
-      this.username
-    }@${this.host}:${this.port}/${this.namespace}]`;
+    let str = "";
+    if (this.connectionType === "native") {
+      str = `IRIS connection [${this.connectionType.toUpperCase()}] [${
+        this.username
+      }@${this.host}:${this.webServerPort}/${this.namespace}]`;
+    } else if (this.connectionType === "odbc") {
+      str = `IRIS connection [${this.connectionType.toUpperCase()}] [${
+        this.username
+      }@${this.host}:${this.superServerPort}/${this.namespace}]`;
+    }
+    return str;
   }
 
   // ---------- Query Execution ----------
@@ -203,6 +221,7 @@ export class IrisConnector extends IrisInference {
       throw new Error("Not connected to IRIS");
     }
     if (!this.sql) {
+      this.log(`[IrisConnector] SQL client not initialized. Call connect() first. Details: ${this.sql}`);
       throw new Error("SQL client not initialized. Call connect() first.");
     }
     return await this.sql.query(sql, parameters);

@@ -328,7 +328,9 @@ export class CommandHandlers {
           // Build connection info text
           const info = [
             `Connection: ${connection.name}`,
-            `Endpoint: ${connection.endpoint}:${connection.port}`,
+            `Endpoint: ${connection.endpoint}`,
+            `SuperServer Port:${connection.superServerPort}`,
+            `Web Server Port:${connection.webServerPort}`,
             `Namespace: ${connection.namespace}`,
             `User: ${connection.user}`,
             connection.description

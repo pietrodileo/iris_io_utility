@@ -41,10 +41,15 @@ export class ImportWebview extends BaseWebview {
     const html = fs.readFileSync(htmlPath, "utf8");
     const css = fs.readFileSync(cssPath, "utf8");
 
+    let port = this.connection.webServerPort.toString();
+    if (this.connection.isOdbc === true) {
+      port = this.connection.superServerPort.toString();
+    }
+
     const processedHtml = html
       .replace("{{connectionName}}", this.connection.name)
       .replace("{{connectionEndpoint}}", this.connection.endpoint)
-      .replace("{{connectionPort}}", this.connection.port.toString())
+      .replace("{{connectionPort}}", port)
       .replace("{{connectionNamespace}}", this.connection.namespace);
 
     return `

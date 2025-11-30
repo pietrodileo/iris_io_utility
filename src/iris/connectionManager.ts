@@ -44,7 +44,8 @@ export class ConnectionManager {
 
     this.log(`[ConnectionManager] Connecting to: ${connection.name}`);
     this.log(`[ConnectionManager]   Host: ${connection.endpoint}`);
-    this.log(`[ConnectionManager]   Port: ${connection.port}`);
+    this.log(`[ConnectionManager]   Superserver Port: ${connection.superServerPort}`);
+    this.log(`[ConnectionManager]   Web Server Port: ${connection.webServerPort}`);
     this.log(`[ConnectionManager]   Namespace: ${connection.namespace}`);
     this.log(`[ConnectionManager]   User: ${connection.user}`);
 
@@ -64,7 +65,8 @@ export class ConnectionManager {
       }
       const config: IrisConnectionConfig = {
         host: connection.endpoint,
-        port: connection.port,
+        superServerPort: connection.superServerPort,
+        webServerPort: connection.webServerPort,
         ns: connection.namespace,
         user: connection.user,
         pwd: connection.password,
