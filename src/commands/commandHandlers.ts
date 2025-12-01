@@ -154,9 +154,7 @@ export class CommandHandlers {
               try {
                 progress.report({ message: "Establishing connection..." });
 
-                const success = await this.connectionManager.connect(
-                  connection
-                );
+                const success = await this.connectionManager.connect(connection);
 
                 if (success) {
                   connection.status = "connected";

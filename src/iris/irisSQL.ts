@@ -138,7 +138,7 @@ export class OdbcSqlClient implements ISqlClient {
 
   async execute(sql: string, parameters: any[] = []): Promise<number> {
     try {
-      this.log(`[ODBC] Executing statement: ${sql.substring(0, 100)}...`);
+      this.log(`[ODBC] Executing statement: ${sql}`);
       const startTime = Date.now();
 
       let result: any;

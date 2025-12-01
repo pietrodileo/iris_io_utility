@@ -71,10 +71,8 @@ export class IrisConnector extends IrisInference {
 
   private async connectNative(): Promise<void> {
     // For native connection, use webServerPort
-    this.log(
-      `[IrisConnector] Native connecting to ${this.host}:${this.webServerPort}/${this.namespace}...`
-    );
-    const config = {
+    this.log(`[IrisConnector] Native connecting to ${this.host}:${this.webServerPort}/${this.namespace}...`);
+    const connectionInfo = {
       host: this.host,
       port: this.webServerPort,
       ns: this.namespace,
@@ -82,7 +80,9 @@ export class IrisConnector extends IrisInference {
       pwd: this.password,
     };
 
-    this.connection = irisnative.createConnection(config);
+    this.log(`[IrisConnector] Connection info: ${JSON.stringify(connectionInfo)}`);
+
+    this.connection = irisnative.createConnection(connectionInfo);
     this.iris = this.connection.createIris();
 
     // Create Native SQL client

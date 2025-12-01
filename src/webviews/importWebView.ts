@@ -307,7 +307,7 @@ export class ImportWebview extends BaseWebview {
                           <option value="DOUBLE" \${c.inferredType === "DOUBLE" ? "selected":""}>DOUBLE</option>
                           <option value="DATE" \${c.inferredType === "DATE" ? "selected":""}>DATE</option>
                           <option value="TIMESTAMP" \${c.inferredType === "TIMESTAMP" ? "selected":""}>TIMESTAMP</option>
-                          <option value="BOOLEAN" \${c.inferredType === "BOOLEAN" ? "selected":""}>BOOLEAN</option>
+                          <option value="BIT" \${c.inferredType === "BIT" ? "selected":""}>BIT</option>
                         </select>
                         <span class="column-sample" title="Sample: \${c.sampleValue}">\${c.sampleValue?.substring(0, 30) || 'NULL'}</span>
                       </div>

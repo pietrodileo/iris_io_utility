@@ -67,6 +67,8 @@ export abstract class BaseConnectionItem extends vscode.TreeItem {
     if (conn.isOdbc) {
       tooltip.appendMarkdown(`**ODBC Connection**\n\n`);
       port = conn.superServerPort;
+    } else {
+      tooltip.appendMarkdown(`**Native Connection**\n\n`);
     }
     tooltip.appendMarkdown(`**Endpoint:** ${conn.endpoint}:${port}\n\n`);
 

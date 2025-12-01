@@ -232,7 +232,7 @@ export abstract class IrisInference {
 
     // Check for boolean
     if (nonEmpty.every((v) => /^(true|false|0|1|yes|no)$/i.test(v))) {
-      return "BOOLEAN";
+      return "BIT";// "BOOLEAN";
     }
 
     // Check string length
@@ -259,7 +259,7 @@ export abstract class IrisInference {
     }
 
     if (typeof value === "boolean") {
-      return "BOOLEAN";
+      return "BIT"; // "BOOLEAN";
     }
 
     if (typeof value === "string") {

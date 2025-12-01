@@ -44,8 +44,12 @@ export class ConnectionManager {
 
     this.log(`[ConnectionManager] Connecting to: ${connection.name}`);
     this.log(`[ConnectionManager]   Host: ${connection.endpoint}`);
-    this.log(`[ConnectionManager]   Superserver Port: ${connection.superServerPort}`);
-    this.log(`[ConnectionManager]   Web Server Port: ${connection.webServerPort}`);
+    this.log(
+      `[ConnectionManager]   Superserver Port: ${connection.superServerPort}`
+    );
+    this.log(
+      `[ConnectionManager]   Web Server Port: ${connection.webServerPort}`
+    );
     this.log(`[ConnectionManager]   Namespace: ${connection.namespace}`);
     this.log(`[ConnectionManager]   User: ${connection.user}`);
 
@@ -63,35 +67,36 @@ export class ConnectionManager {
           `[ConnectionManager] ODBC drivers not available. Proceeding with native connection...`
         );
       }
-      const config: IrisConnectionConfig = {
-        host: connection.endpoint,
-        superServerPort: connection.superServerPort,
-        webServerPort: connection.webServerPort,
-        ns: connection.namespace,
-        user: connection.user,
-        pwd: connection.password,
-        connectionType: connectionType,
-      };
-      this.log(
-        `[ConnectionManager] Config: ${JSON.stringify({
-          ...config,
-          pwd: "***",
-        })}`
-      );
 
-      const connector = new IrisConnector(config, this.outputChannel);
-
-      this.log(`[ConnectionManager] Attempting to connect...`);
-
-      await connector.connect();
-      this.log(`[ConnectionManager] Connection established successfully`);
+      // if connection type is ODBC, try to connect. If the attempt fails, use native connection
+      let connector: IrisConnector | undefined;
+      try {
+        this.log(`[ConnectionManager] Attempting to connect...`);
+        connector = await this.tryConnectionWithRetry(connection, connectionType);
+      } catch (error: any) {
+        if (connectionType === "odbc") {
+          this.log(`[ConnectionManager] ODBC connection failed: ${error.message}. Trying native connection...`);
+          connectionType = "native";
+          connector = await this.tryConnectionWithRetry(connection, "native");
+        } else {
+        throw error; 
+        }
+      }
+      
+      if (!connector) {
+        this.log(`[ConnectionManager] Connection failed`);
+        throw new Error("Connection failed");
+      }
 
       this.log(`[ConnectionManager] Testing connection...`);
-
       const testResult = await connector.test();
       this.log(`[ConnectionManager] Test result: ${testResult}`);
 
       if (testResult) {
+        // Set connection type
+        if (connectionType === "odbc") {
+          connection.isOdbc = true;
+        }
         this.activeConnections.set(connection.id, connector);
         this.log(`[ConnectionManager] Successfully connected!`);
         return true;
@@ -111,16 +116,34 @@ export class ConnectionManager {
     }
   }
 
-  /**
-   * Check if InterSystems ODBC drivers are installed
-   */
-  private async odbcDriversAvailable(): Promise<boolean> {
+  /* 
+    This method tries to connect to IRIS with the specified connection type (odbc or native).
+    If odbc is selected, it will try to connect with odbc first, and if that fails, it will try to connect with native.
+  */
+  private async tryConnectionWithRetry(
+    connection: Connection,
+    connectionType: ConnectionType
+  ): Promise<IrisConnector> {
     try {
-      const odbc = require("odbc");
-      const drivers: string[] = await odbc.drivers();
-      return drivers.some((d) => d.toLowerCase().includes("intersystems"));
-    } catch {
-      return false;
+      const config: IrisConnectionConfig = {
+        host: connection.endpoint,
+        superServerPort: connection.superServerPort,
+        webServerPort: connection.webServerPort,
+        ns: connection.namespace,
+        user: connection.user,
+        pwd: connection.password,
+        connectionType: connectionType,
+      };
+      this.log(`[ConnectionManager] Config: ${JSON.stringify({...config,pwd: "***",})}`);
+      // if connection type is ODBC, try to connect. If the attempt fails, use native connection
+      const connector = new IrisConnector(config, this.outputChannel);
+      this.log(`[ConnectionManager] Attempting to connect with connection type: ${connectionType}...`);
+      await connector.connect();
+      this.log(`[ConnectionManager] Connection established successfully`);    
+      return connector;
+    } catch (error: any) {
+      this.log(`[ConnectionManager] ${connectionType.toUpperCase()} connection failed: ${error?.message}`);
+      throw error;
     }
   }
 
@@ -132,7 +155,9 @@ export class ConnectionManager {
     if (connector) {
       connector.close();
       this.activeConnections.delete(connectionId);
-      this.log(`[ConnectionManager] Disconnected from connection ID: ${connectionId}`);
+      this.log(
+        `[ConnectionManager] Disconnected from connection ID: ${connectionId}`
+      );
     }
   }
 
