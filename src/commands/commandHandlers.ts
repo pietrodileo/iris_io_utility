@@ -69,6 +69,14 @@ export class CommandHandlers {
           }
 
           const connection = item.connection as Connection;
+
+          // if connection is connected, disconnect first
+          if (this.connectionManager.isConnected(connection.id)) {
+            this.connectionManager.disconnect(connection.id);
+            connection.status = "idle";
+            connection.errorMessage = undefined;
+          }
+          
           const connectionData = await ConnectionInputs.promptForConnection(
             connection
           );
@@ -327,8 +335,8 @@ export class CommandHandlers {
           const info = [
             `Connection: ${connection.name}`,
             `Endpoint: ${connection.endpoint}`,
-            `SuperServer Port:${connection.superServerPort}`,
-            `Web Server Port:${connection.webServerPort}`,
+            `SuperServer Port: ${connection.superServerPort}`,
+            `Web Server Port: ${connection.webServerPort}`,
             `Namespace: ${connection.namespace}`,
             `User: ${connection.user}`,
             connection.description

@@ -70,24 +70,22 @@ export class IrisConnector extends IrisInference {
   }
 
   private async connectNative(): Promise<void> {
-    // For native connection, use webServerPort
-    this.log(`[IrisConnector] Native connecting to ${this.host}:${this.webServerPort}/${this.namespace}...`);
+    this.log(
+      `[IrisConnector] Native connecting to ${this.host}:${this.superServerPort}/${this.namespace}...`
+    );
     const connectionInfo = {
       host: this.host,
-      port: this.webServerPort,
+      port: this.superServerPort,
       ns: this.namespace,
       user: this.username,
       pwd: this.password,
     };
 
-    this.log(`[IrisConnector] Connection info: ${JSON.stringify(connectionInfo)}`);
-
     this.connection = irisnative.createConnection(connectionInfo);
+    this.log(`[IrisConnector] Creating IRIS`);
     this.iris = this.connection.createIris();
-
     // Create Native SQL client
     this.sql = createSqlClient("native", this.connection, this.outputChannel);
-
     this.log("[IrisConnector] Native SDK initialized");
   }
 
@@ -175,44 +173,10 @@ export class IrisConnector extends IrisInference {
     }
   }
 
-  async test(): Promise<boolean> {
-    this.log("[IrisConnector] Starting connection test...");
-    if (!this.isConnected()) {
-      this.log("[IrisConnector] Not connected (pre-query check), test failed");
-      return false;
-    }
-
-    try {
-      // Execute a simple query to confirm the connection is alive
-      const result = await this.connection.query("SELECT 1");
-      this.log(
-        `[IrisConnector] Test query successful. Result count: ${result.count}`
-      );
-      return true;
-    } catch (error: any) {
-      this.log(`[IrisConnector] Test query failed: ${error.message}`);
-      // Log the detailed ODBC errors if they exist
-      if (error.odbcErrors) {
-        for (const odbcError of error.odbcErrors) {
-          this.log(`  - ODBC Error: ${odbcError.message}`);
-        }
-      }
-      return false;
-    }
-  }
-
   toString(): string {
-    let str = "";
-    if (this.connectionType === "native") {
-      str = `IRIS connection [${this.connectionType.toUpperCase()}] [${
-        this.username
-      }@${this.host}:${this.webServerPort}/${this.namespace}]`;
-    } else if (this.connectionType === "odbc") {
-      str = `IRIS connection [${this.connectionType.toUpperCase()}] [${
-        this.username
-      }@${this.host}:${this.superServerPort}/${this.namespace}]`;
-    }
-    return str;
+    return `IRIS connection [${this.connectionType.toUpperCase()}] [${
+      this.username
+    }@${this.host}:${this.superServerPort}/${this.namespace}]`;
   }
 
   // ---------- Query Execution ----------

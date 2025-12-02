@@ -42,10 +42,7 @@ export class ExportWebview extends BaseWebview {
     const css = fs.readFileSync(cssPath, "utf8");
 
     // Replace placeholders with actual connection data
-    let port = this.connection.webServerPort.toString();
-    if (this.connection.isOdbc === true) {
-      port = this.connection.superServerPort.toString();
-    }
+    let port = this.connection.superServerPort.toString();
     const processedHtml = html
       .replace("{{connectionName}}", this.connection.name)
       .replace("{{connectionEndpoint}}", this.connector.host)

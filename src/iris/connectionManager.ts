@@ -88,23 +88,14 @@ export class ConnectionManager {
         throw new Error("Connection failed");
       }
 
-      this.log(`[ConnectionManager] Testing connection...`);
-      const testResult = await connector.test();
-      this.log(`[ConnectionManager] Test result: ${testResult}`);
-
-      if (testResult) {
-        // Set connection type
-        if (connectionType === "odbc") {
-          connection.isOdbc = true;
-        }
-        this.activeConnections.set(connection.id, connector);
-        this.log(`[ConnectionManager] Successfully connected!`);
-        return true;
-      } else {
-        connector.close();
-        this.log(`[ConnectionManager] Connection test failed`);
-        return false;
+      // Set connection type
+      if (connectionType === "odbc") {
+        connection.isOdbc = true;
       }
+      this.activeConnections.set(connection.id, connector);
+      this.log(`[ConnectionManager] Successfully connected!`);
+      return true;
+
     } catch (error: any) {
       this.log(
         `[ConnectionManager] Error: ${error.message || "Unknown error"}`
