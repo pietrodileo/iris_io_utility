@@ -4,6 +4,7 @@ import { IrisConnectionConfig } from "./models/connection/irisConnectionConfig";
 import { Connection } from "../models/baseConnection";
 import type { ConnectionType } from "./models/connection/irisConnectionConfig";
 import { OdbcDriverChecker } from "../iris/models/connection/odbcDriverChecker";
+import { SettingsManager } from "../webviews/settingsManager";
 
 /**
  * Manages active IRIS connections
@@ -12,8 +13,9 @@ export class ConnectionManager {
   private activeConnections = new Map<string, IrisConnector>();
   private outputChannel: vscode.OutputChannel;
 
-  constructor(outputChannel: vscode.OutputChannel) {
+  constructor(private context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel) {
     this.outputChannel = outputChannel;
+    this.context = context;
   }
 
   /**
@@ -54,35 +56,39 @@ export class ConnectionManager {
     this.log(`[ConnectionManager]   User: ${connection.user}`);
 
     try {
-      this.log(`[ConnectionManager] Testing if ODBC drivers are available...`);
-      // --- Perform ODBC check ---
-      const driverChecker = new OdbcDriverChecker(this.outputChannel);
-      const odbcAvailable = await driverChecker.checkOdbcDrivers();
-      let connectionType: ConnectionType = "native"; // default to native
-      if (odbcAvailable) {
-        this.log(`[ConnectionManager] ODBC drivers available`);
-        connectionType = "odbc";
-      } else {
-        this.log(
-          `[ConnectionManager] ODBC drivers not available. Proceeding with native connection...`
-        );
-      }
+      // Get connection type from settings
+      let connectionType: ConnectionType = SettingsManager.getDefaultConnectionType(this.context);
 
       // if connection type is ODBC, try to connect. If the attempt fails, use native connection
       let connector: IrisConnector | undefined;
-      try {
-        this.log(`[ConnectionManager] Attempting to connect...`);
-        connector = await this.tryConnectionWithRetry(connection, connectionType);
-      } catch (error: any) {
-        if (connectionType === "odbc") {
-          this.log(`[ConnectionManager] ODBC connection failed: ${error.message}. Trying native connection...`);
-          connectionType = "native";
-          connector = await this.tryConnectionWithRetry(connection, "native");
-        } else {
-        throw error; 
-        }
-      }
-      
+      this.log(`[ConnectionManager] Attempting to connect...`);
+      connector = await this.createConnector(connection, connectionType);
+
+      // ** Old implementation, deprecated **
+      // const driverChecker = new OdbcDriverChecker(this.outputChannel);
+      // const odbcAvailable = await driverChecker.checkOdbcDrivers();
+      // let connectionType: ConnectionType = "native"; // default to native
+      // if (odbcAvailable) {
+      //   this.log(`[ConnectionManager] ODBC drivers available`);
+      //   connectionType = "odbc";
+      // } else {
+      //   this.log(
+      //     `[ConnectionManager] ODBC drivers not available. Proceeding with native connection...`
+      //   );
+      // }
+      // try {
+      //   this.log(`[ConnectionManager] Attempting to connect...`);
+      //   connector = await this.createConnector(connection, connectionType);
+      // } catch (error: any) {
+      //   if (connectionType === "odbc") {
+      //     this.log(`[ConnectionManager] ODBC connection failed: ${error.message}. Trying native connection...`);
+      //     connectionType = "native";
+      //     connector = await this.createConnector(connection, "native");
+      //   } else {
+      //   throw error;
+      //   }
+      // }
+
       if (!connector) {
         this.log(`[ConnectionManager] Connection failed`);
         throw new Error("Connection failed");
@@ -93,9 +99,8 @@ export class ConnectionManager {
         connection.isOdbc = true;
       }
       this.activeConnections.set(connection.id, connector);
-      this.log(`[ConnectionManager] Successfully connected!`);
+      this.log(`[ConnectionManager] Successfully connected with ${connectionType}!`);
       return true;
-
     } catch (error: any) {
       this.log(
         `[ConnectionManager] Error: ${error.message || "Unknown error"}`
@@ -111,7 +116,7 @@ export class ConnectionManager {
     This method tries to connect to IRIS with the specified connection type (odbc or native).
     If odbc is selected, it will try to connect with odbc first, and if that fails, it will try to connect with native.
   */
-  private async tryConnectionWithRetry(
+  private async createConnector(
     connection: Connection,
     connectionType: ConnectionType
   ): Promise<IrisConnector> {
@@ -125,9 +130,21 @@ export class ConnectionManager {
         pwd: connection.password,
         connectionType: connectionType,
       };
+      if (connectionType === "odbc") {
+        this.log(
+          `[ConnectionManager] Testing if ODBC drivers are available...`
+        );
+        // --- Perform ODBC check ---
+        const driverChecker = new OdbcDriverChecker(this.outputChannel);
+        const odbcAvailable = await driverChecker.checkOdbcDrivers();
+        if (!odbcAvailable) {
+          this.log(`[ConnectionManager] ODBC drivers not available`);
+          throw new Error("ODBC drivers not available");
+        }
+      }
       this.log(`[ConnectionManager] Config: ${JSON.stringify({...config,pwd: "***",})}`);
       // if connection type is ODBC, try to connect. If the attempt fails, use native connection
-      const connector = new IrisConnector(config, this.outputChannel);
+      const connector = new IrisConnector(config, this.outputChannel, this.context);
       this.log(`[ConnectionManager] Attempting to connect with connection type: ${connectionType}...`);
       await connector.connect();
       this.log(`[ConnectionManager] Connection established successfully`);    

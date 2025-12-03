@@ -15,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(outputChannel);
 
   // Initialize connection manager
-  connectionManager = new ConnectionManager(outputChannel);
+  connectionManager = new ConnectionManager(context, outputChannel);
   webviewManager = new WebviewManager(context, connectionManager, outputChannel);
 
   // Initialize connections provider

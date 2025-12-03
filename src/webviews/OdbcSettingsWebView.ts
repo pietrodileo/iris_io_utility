@@ -2,15 +2,17 @@ import * as vscode from "vscode";
 import { OdbcDriverChecker } from "../iris/models/connection/odbcDriverChecker";
 import * as path from "path";
 import * as fs from "fs";
+import { SettingsManager } from "./settingsManager";
 
 export class OdbcSettingsWebview {
+  private static instance: OdbcSettingsWebview | undefined;
   private panel: vscode.WebviewPanel | undefined;
   private outputChannel: vscode.OutputChannel;
   private context: vscode.ExtensionContext;
   private readonly CONNECTION_TYPE_KEY = "irisIO.defaultConnectionType";
   private readonly ODBC_DRIVER_KEY = "irisIO.odbcDriver";
 
-  constructor(
+  private constructor(
     context: vscode.ExtensionContext,
     outputChannel: vscode.OutputChannel
   ) {
@@ -18,27 +20,32 @@ export class OdbcSettingsWebview {
     this.outputChannel = outputChannel;
   }
 
+  public static getInstance(
+    context: vscode.ExtensionContext,
+    outputChannel: vscode.OutputChannel
+  ): OdbcSettingsWebview {
+    if (!OdbcSettingsWebview.instance) {
+      OdbcSettingsWebview.instance = new OdbcSettingsWebview(
+        context,
+        outputChannel
+      );
+    }
+    return OdbcSettingsWebview.instance;
+  }
+
   public async show(): Promise<void> {
-    // Get current connection type from workspaceState
-    const currentConnectionType = this.context.workspaceState.get<string>(
-      this.CONNECTION_TYPE_KEY,
-      "native"
-    );
+    // If panel already exists, just reveal it (don't recreate)
+    if (this.panel) {
+      this.panel.reveal(vscode.ViewColumn.One);
+      return;
+    }
+
+    // Get current connection type from workspaceState (no default)
+    const currentConnectionType = SettingsManager.getDefaultConnectionType(this.context);
 
     this.log(
       `[OdbcSettingsWebview] Opening settings with connection type: ${currentConnectionType}`
     );
-
-    // If panel already exists, reveal it and refresh content
-    if (this.panel) {
-      this.panel.reveal(vscode.ViewColumn.One);
-      // Refresh the HTML content with current settings
-      this.panel.webview.html = this.getHtmlContent(currentConnectionType);
-      this.log(
-        `[OdbcSettingsWebview] Refreshed existing panel with connection type: ${currentConnectionType}`
-      );
-      return;
-    }
 
     // Create new webview panel
     this.panel = vscode.window.createWebviewPanel(
@@ -53,6 +60,19 @@ export class OdbcSettingsWebview {
 
     // Set initial HTML content
     this.panel.webview.html = this.getHtmlContent(currentConnectionType);
+
+    // Send initial driver info after a short delay to ensure DOM is ready
+    setTimeout(() => {
+      const selectedDriver = SettingsManager.getOdbcDriver(this.context);
+      if (selectedDriver) {
+        this.log(
+          `[OdbcSettingsWebview] Sending initial driver: ${selectedDriver}`
+        );
+        this.postMessage("initial-driver", selectedDriver);
+      } else {
+        this.log(`[OdbcSettingsWebview] No driver saved yet`);
+      }
+    }, 100);
 
     // Handle messages from webview
     this.panel.webview.onDidReceiveMessage(
@@ -111,15 +131,12 @@ export class OdbcSettingsWebview {
         )}`
       );
 
-      const selectedDriver = this.context.workspaceState.get<string>(
-        this.ODBC_DRIVER_KEY,
-        ""
-      );
+      const selectedDriver = SettingsManager.getOdbcDriver(this.context);
 
       this.postMessage("drivers-checked", {
         driversAvailable,
         availableDrivers,
-        selectedDriver,
+        selectedDriver: selectedDriver || "",
       });
 
       this.postMessage("loading", false);
@@ -174,6 +191,8 @@ export class OdbcSettingsWebview {
         `Default connection type set to: ${type.toUpperCase()}`
       );
 
+      // Send confirmation back to webview
+      this.postMessage("connection-type-saved", type);
     } catch (error: any) {
       this.log(
         `[OdbcSettingsWebview] Error saving connection type: ${error.message}`
@@ -304,23 +323,40 @@ export class OdbcSettingsWebview {
           \`;
 
           if (availableDrivers && availableDrivers.length > 0) {
+            // If no driver is selected, use the first available one
+            const driverToSelect = selectedDriver || availableDrivers[0];
+            
             driversBox.style.display = 'block';
             driversBox.innerHTML = \`
               <div class="info-box">
                 <strong>Select ODBC Driver:</strong>
                 <select id="odbc-driver-select" class="driver-select">
                   \${availableDrivers.map(driver => \`
-                    <option value="\${driver}" \${driver === selectedDriver ? 'selected' : ''}>\${driver}</option>
+                    <option value="\${driver}" \${driver === driverToSelect ? 'selected' : ''}>\${driver}</option>
                   \`).join('')}
                 </select>
+                <div style="margin-top: 10px;">
+                  <button id="save-driver-btn">Save Driver Selection</button>
+                </div>
               </div>
             \`;
 
-            // Attach change handler to select
+            // Attach change handler to select (just updates display, doesn't save)
             const driverSelect = document.getElementById('odbc-driver-select');
-            if (driverSelect) {
+            const driverDisplay = document.getElementById('selected-driver-display');
+            
+            if (driverSelect && driverDisplay) {
               driverSelect.addEventListener('change', function() {
-                sendMessage('setOdbcDriver', this.value);
+                driverDisplay.value = this.value;
+              });
+            }
+
+            // Attach save button handler
+            const saveDriverBtn = document.getElementById('save-driver-btn');
+            if (saveDriverBtn && driverSelect) {
+              saveDriverBtn.addEventListener('click', function() {
+                const selectedValue = driverSelect.value;
+                sendMessage('setOdbcDriver', selectedValue);
               });
             }
           }
@@ -352,6 +388,45 @@ export class OdbcSettingsWebview {
             if (checkBtn) {
               checkBtn.disabled = message.data;
               checkBtn.textContent = message.data ? 'Checking...' : 'Check ODBC Drivers';
+            }
+            break;
+          case 'connection-type-saved':
+            // Show visual feedback that save was successful
+            const saveBtn = document.getElementById('save-connection-type-btn');
+            if (saveBtn) {
+              const originalText = saveBtn.textContent;
+              saveBtn.textContent = '✓ Saved!';
+              saveBtn.style.backgroundColor = '#4caf50';
+              setTimeout(() => {
+                saveBtn.textContent = originalText;
+                saveBtn.style.backgroundColor = '';
+              }, 2000);
+            }
+            break;
+          case 'initial-driver':
+            const box = document.getElementById('initialDriverBox');
+            const display = document.getElementById('initialDriverDisplay');
+
+            if (box && display) {
+              if (message.data) {
+                display.value = message.data;
+                box.style.display = 'block';
+              } else {
+                box.style.display = 'none';
+              }
+            }
+            break;
+          case 'odbc-driver-saved':
+            // Update the initial driver display box with the newly saved driver
+            const initialDisplay = document.getElementById('initialDriverDisplay');
+            if (initialDisplay) {
+              initialDisplay.value = message.data;
+            }
+            
+            // Show visual feedback in the dropdown area if it exists
+            const selectedDisplay = document.getElementById('selected-driver-display');
+            if (selectedDisplay) {
+              selectedDisplay.value = message.data;
             }
             break;
           case 'error':

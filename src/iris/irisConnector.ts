@@ -4,6 +4,7 @@ import type { IrisConnectionConfig, ConnectionType } from "./models/connection/i
 import {TableDescription,SchemaTable,} from "./models/connection/irisTables";
 import { ISqlClient, createSqlClient } from "./irisSQL";
 import { IrisInference, ColumnAnalysis } from "./models/sql/inference";
+import { SettingsManager } from "../webviews/settingsManager";
 import odbc from "odbc";
 
 /**
@@ -26,20 +27,28 @@ export class IrisConnector extends IrisInference {
   private password: string;
   private connectionType: ConnectionType;
 
+  private context: vscode.ExtensionContext;
+
   constructor(
     config: IrisConnectionConfig,
-    outputChannel: vscode.OutputChannel
+    outputChannel: vscode.OutputChannel,
+    context: vscode.ExtensionContext
   ) {
     super(outputChannel);
     this.host = config.host;
-    this.superServerPort = 
-      typeof config.superServerPort === "string" ? parseInt(config.superServerPort) : config.superServerPort;
+    this.superServerPort =
+      typeof config.superServerPort === "string"
+        ? parseInt(config.superServerPort)
+        : config.superServerPort;
     this.webServerPort =
-      typeof config.webServerPort === "string" ? parseInt(config.webServerPort) : config.webServerPort;
+      typeof config.webServerPort === "string"
+        ? parseInt(config.webServerPort)
+        : config.webServerPort;
     this.namespace = config.ns;
     this.username = config.user;
     this.password = config.pwd;
     this.connectionType = config.connectionType;
+    this.context = context;
   }
 
   // ---------- Connection Management ----------
@@ -92,14 +101,14 @@ export class IrisConnector extends IrisInference {
   private async connectOdbc(): Promise<void> {
     // Build ODBC connection string
     try {
-      // For ODBC connection, use superServerPort
-      this.log(
-        `[IrisConnector] ODBC connecting to ${this.host}:${this.superServerPort}/${this.namespace}...`
-      );
+      // Get the ODBC driver from settings
+      const odbcDriver = SettingsManager.getOdbcDriver(this.context);
+
+      this.log(`[IrisConnector] ODBC connecting to ${this.host}:${this.superServerPort}/${this.namespace} using ODBC driver ${odbcDriver}...`);
 
       // Form the connection string
       const connStr = [
-        `DRIVER={InterSystems IRIS ODBC35}`,
+        `DRIVER=${odbcDriver}`,
         `SERVER=${this.host}`,
         `PORT=${this.superServerPort}`,
         `DATABASE=${this.namespace}`,
@@ -109,7 +118,7 @@ export class IrisConnector extends IrisInference {
 
       // Connect via ODBC
       this.connection = await odbc.connect(connStr);
-      
+
       // Create ODBC SQL client
       this.sql = createSqlClient("odbc", this.connection, this.outputChannel);
 
@@ -122,9 +131,7 @@ export class IrisConnector extends IrisInference {
       if (error.odbcErrors) {
         this.log("[IrisConnector] ODBC Driver Error Details:");
         for (const odbcError of error.odbcErrors) {
-          this.log(
-            `  - State: ${odbcError.state}, Code: ${odbcError.code}, Message: ${odbcError.message}`
-          );
+          this.log(`  - State: ${odbcError.state}, Code: ${odbcError.code}, Message: ${odbcError.message}`);
         }
       }
 
@@ -185,7 +192,9 @@ export class IrisConnector extends IrisInference {
       throw new Error("Not connected to IRIS");
     }
     if (!this.sql) {
-      this.log(`[IrisConnector] SQL client not initialized. Call connect() first. Details: ${this.sql}`);
+      this.log(
+        `[IrisConnector] SQL client not initialized. Call connect() first. Details: ${this.sql}`
+      );
       throw new Error("SQL client not initialized. Call connect() first.");
     }
     return await this.sql.query(sql, parameters);
@@ -214,7 +223,6 @@ export class IrisConnector extends IrisInference {
     sql += " ORDER BY TABLE_SCHEMA ";
 
     const results = await this.query(sql, parameters);
-    this.log(`[Failed to load schemas: SQL client not initialized. Call connect() first.IrisConnector] Got ${results.length} schemas`);
     return results.map((row) => row.TABLE_SCHEMA);
   }
 

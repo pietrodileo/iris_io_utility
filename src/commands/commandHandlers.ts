@@ -364,7 +364,7 @@ export class CommandHandlers {
       vscode.commands.registerCommand("irisIO.checkOdbcDrivers", async () => {
         try {
           // Create and show the settings webview
-          const settingsWebview = new OdbcSettingsWebview(
+          const settingsWebview = OdbcSettingsWebview.getInstance(
             this.context,
             this.outputChannel
           );

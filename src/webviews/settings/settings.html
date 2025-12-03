@@ -7,6 +7,14 @@
         
         <p>Check if InterSystems IRIS ODBC drivers are installed on this system.</p>
         
+        <!-- Show currently saved driver -->
+        <div id="initialDriverBox" style="display: none; margin-bottom: 15px;">
+            <div class="info-box">
+                <strong>Currently Saved Driver:</strong>
+                <input type="text" id="initialDriverDisplay" class="driver-display" readonly />
+            </div>
+        </div>
+        
         <div>
             <button id="check-drivers-btn">Check ODBC Drivers</button>
             <button id="download-drivers-btn" class="secondary">Download ODBC Drivers</button>

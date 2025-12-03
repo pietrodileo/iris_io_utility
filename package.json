@@ -12,25 +12,6 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
-    "configuration": {
-      "title": "IRIS IO Utility",
-      "properties": {
-        "irisIO.defaultConnectionType": {
-          "type": "string",
-          "enum": [
-            "native",
-            "odbc"
-          ],
-          "default": "native",
-          "description": "Default connection type for new IRIS connections (native or odbc)"
-        },
-        "irisIO.odbcDriver": {
-          "type": "string",
-          "default": "InterSystems IRIS ODBC35",
-          "description": "ODBC driver to use for ODBC connections"
-        }
-      }
-    },
     "viewsContainers": {
       "activitybar": [
         {

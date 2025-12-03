@@ -10,4 +10,4 @@ export interface IrisConnectionConfig {
   odbcDsn?: string;
 }
 
-export type ConnectionType = "native" | "odbc" ;
+export type ConnectionType = "native" | "odbc"  ;
