@@ -4,7 +4,7 @@ import { ConnectionsProvider } from "../providers/connectionsProvider";
 import { ConnectionManager } from "../iris/connectionManager";
 import { ConnectionInputs } from "./connectionInputs";
 import { WebviewManager } from "../webviews/webViewManager";
-import { OdbcDriverChecker } from "../iris/models/connection/odbcDriverChecker";
+import { OdbcSettingsWebview } from "../webviews/OdbcSettingsWebView";
 const odbc = require("odbc");
 
 /**
@@ -76,7 +76,7 @@ export class CommandHandlers {
             connection.status = "idle";
             connection.errorMessage = undefined;
           }
-          
+
           const connectionData = await ConnectionInputs.promptForConnection(
             connection
           );
@@ -162,7 +162,9 @@ export class CommandHandlers {
               try {
                 progress.report({ message: "Establishing connection..." });
 
-                const success = await this.connectionManager.connect(connection);
+                const success = await this.connectionManager.connect(
+                  connection
+                );
 
                 if (success) {
                   connection.status = "connected";
@@ -331,25 +333,21 @@ export class CommandHandlers {
 
           const connection = item.connection as Connection;
 
-          // Build connection info text
-          const info = [
-            `Connection: ${connection.name}`,
-            `Endpoint: ${connection.endpoint}`,
-            `SuperServer Port: ${connection.superServerPort}`,
-            `Web Server Port: ${connection.webServerPort}`,
-            `Namespace: ${connection.namespace}`,
-            `User: ${connection.user}`,
-            connection.description
-              ? `Description: ${connection.description}`
-              : null,
-            `Status: ${connection.status || "idle"}`,
-            connection.errorMessage
-              ? `Error: ${connection.errorMessage}`
-              : null,
-          ]
-            .filter(Boolean) // Remove null entries
-            .join("\n");
-
+          // Build connection info text as a json
+          const info_json = {
+            connection_name: connection.name,
+            endpoint: `${connection.endpoint}:${connection.superServerPort}`,
+            host: connection.endpoint,
+            superserver_port: connection.superServerPort,
+            webserver_port: connection.webServerPort,
+            namespace: connection.namespace,
+            user: connection.user,
+            description: connection.description || null,
+            status: connection.status,
+            error_message: connection.errorMessage || null
+          };
+          const info = JSON.stringify(info_json, null, 2);
+          
           // Copy to clipboard
           await vscode.env.clipboard.writeText(info);
 
@@ -365,33 +363,15 @@ export class CommandHandlers {
     this.context.subscriptions.push(
       vscode.commands.registerCommand("irisIO.checkOdbcDrivers", async () => {
         try {
-          // --- Perform ODBC check ---
-          const driverChecker = new OdbcDriverChecker(this.outputChannel);
-          const driversAvailable = await driverChecker.checkOdbcDrivers();
-
-          if (driversAvailable) {
-            vscode.window.showInformationMessage(
-              "InterSystems IRIS ODBC drivers are installed on this machine."
-            );
-          } else {
-            vscode.window
-              .showWarningMessage(
-                "InterSystems IRIS ODBC drivers are NOT installed.\nClick here to download.",
-                "Download Drivers"
-              )
-              .then((selection) => {
-                if (selection === "Download Drivers") {
-                  vscode.env.openExternal(
-                    vscode.Uri.parse(
-                      "https://intersystems-community.github.io/iris-driver-distribution/"
-                    )
-                  );
-                }
-              });
-          }
+          // Create and show the settings webview
+          const settingsWebview = new OdbcSettingsWebview(
+            this.context,
+            this.outputChannel
+          );
+          await settingsWebview.show();
         } catch (err: any) {
           vscode.window.showErrorMessage(
-            `Error while checking ODBC drivers: ${err?.message || err}`
+            `Error opening ODBC settings: ${err?.message || err}`
           );
         }
       })

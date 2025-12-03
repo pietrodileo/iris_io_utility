@@ -10,6 +10,8 @@ export class WebviewManager {
   private panels: Map<string, BaseWebview> = new Map();
   private connectionManager: ConnectionManager;
   private outputChannel: vscode.OutputChannel;
+  private static readonly CONNECTION_TYPE_KEY = "irisIO.defaultConnectionType";
+  private static readonly ODBC_DRIVER_KEY = "irisIO.odbcDriver";
 
   constructor(
     private context: vscode.ExtensionContext,
@@ -25,7 +27,9 @@ export class WebviewManager {
    */
   public show(connection: Connection, mode: "import" | "export") {
     const key = `iris-${mode}-${connection.id}`;
-    this.log(`[WebviewManager] Showing webview with mode '${mode}' for connection item: ${key}`);
+    this.log(
+      `[WebviewManager] Showing webview with mode '${mode}' for connection item: ${key}`
+    );
     // Get existing panel if it exists
     let webview = this.panels.get(key);
 
@@ -39,8 +43,18 @@ export class WebviewManager {
     if (!webview) {
       webview =
         mode === "import"
-          ? new ImportWebview(this.context, connection, this.connectionManager, this.outputChannel)
-          : new ExportWebview(this.context, connection, this.connectionManager, this.outputChannel);
+          ? new ImportWebview(
+              this.context,
+              connection,
+              this.connectionManager,
+              this.outputChannel
+            )
+          : new ExportWebview(
+              this.context,
+              connection,
+              this.connectionManager,
+              this.outputChannel
+            );
 
       this.panels.set(key, webview);
 
@@ -62,6 +76,22 @@ export class WebviewManager {
       webview.dispose();
     }
     this.panels.clear();
+  }
+
+  static getDefaultConnectionType(
+    context: vscode.ExtensionContext
+  ): "native" | "odbc" {
+    return context.workspaceState.get<"native" | "odbc">(
+      this.CONNECTION_TYPE_KEY,
+      "native"
+    );
+  }
+
+  static getOdbcDriver(context: vscode.ExtensionContext): string {
+    return context.workspaceState.get<string>(
+      this.ODBC_DRIVER_KEY,
+      "InterSystems IRIS ODBC35"
+    );
   }
 
   /**

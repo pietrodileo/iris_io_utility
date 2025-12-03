@@ -65,7 +65,7 @@ export class OdbcDriverChecker {
                 const driverName = trimmedLine.substring(0, regSzIndex).trim();
                 driverNames.push(driverName);
                 // Log each found driver
-                this.log(`  - ${driverName}`);
+                // this.log(`  - ${driverName}`);
               }
             }
           }
@@ -155,5 +155,103 @@ export class OdbcDriverChecker {
   private log(message: string): void {
     const timestamp = new Date().toISOString();
     this.outputChannel.appendLine(`[${timestamp}] ${message}`);
+  }
+
+  public async listInstalledDrivers(): Promise<string[]> {
+    const platform = os.platform();
+
+    try {
+      if (platform === "win32") {
+        return await this.listDriversWindows();
+      }
+      if (platform === "darwin") {
+        return await this.listDriversMac();
+      }
+      if (platform === "linux") {
+        return await this.listDriversLinux();
+      }
+
+      this.log(`[OdbcDriverChecker] Unsupported platform for driver listing.`);
+      return [];
+    } catch (e: any) {
+      this.log(`[OdbcDriverChecker] Error listing drivers: ${e.message}`);
+      return [];
+    }
+  }
+
+  private async listDriversWindows(): Promise<string[]> {
+    return new Promise((resolve) => {
+      exec(
+        `reg query "HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI\\ODBC Drivers"`,
+        (err, stdout) => {
+          if (err || !stdout) {
+            this.log("[OdbcDriverChecker] Could not query driver registry.");
+            resolve([]);
+            return;
+          }
+
+          const drivers: string[] = [];
+          const lines = stdout.split("\n");
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            const idx = trimmedLine.indexOf("REG_SZ");
+
+            if (idx > 0) {
+              const name = trimmedLine.substring(0, idx).trim();
+              if (name.length > 0) {drivers.push(name);}
+            }
+          }
+
+          this.log(`[OdbcDriverChecker] Drivers detected on Windows:`);
+          drivers.forEach((d) => this.log(`  - ${d}`));
+
+          resolve(drivers);
+        }
+      );
+    });
+  }
+
+  private async listDriversMac(): Promise<string[]> {
+    const dir = "/Library/ODBC";
+
+    if (!fs.existsSync(dir)) {
+      this.log(`[OdbcDriverChecker] No ODBC directory found at ${dir}`);
+      return [];
+    }
+
+    const files = fs.readdirSync(dir);
+    const drivers = files.filter((f) => f.endsWith(".ini"));
+
+    this.log(`[OdbcDriverChecker] Drivers detected on macOS:`);
+    drivers.forEach((d) => this.log(`  - ${d}`));
+
+    return drivers;
+  }
+
+  private async listDriversLinux(): Promise<string[]> {
+    const file = "/etc/odbcinst.ini";
+
+    if (!fs.existsSync(file)) {
+      this.log(`[OdbcDriverChecker] ${file} does not exist.`);
+      return [];
+    }
+
+    const contents = fs.readFileSync(file, "utf8");
+    const drivers: string[] = [];
+
+    for (const line of contents.split("\n")) {
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+        const name = trimmed.substring(1, trimmed.length - 1).trim();
+        if (name) {drivers.push(name);}
+      }
+    }
+
+    this.log(`[OdbcDriverChecker] Drivers detected on Linux:`);
+    drivers.forEach((d) => this.log(`  - ${d}`));
+
+    return drivers;
   }
 }
