@@ -96,7 +96,7 @@
       },
       {
         "command": "irisIO.checkOdbcDrivers",
-        "title": "Check ODBC Drivers",
+        "title": "IRIS IO Connection Settings",
         "icon": "$(gear)"
       }
     ],

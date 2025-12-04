@@ -198,6 +198,23 @@ export class ImportWebview extends BaseWebview {
           columnTypes[colName] = select.value;
         });
 
+        let columnIndexes = {};
+        const indexChecks = document.querySelectorAll('.index-checkbox');
+
+        indexChecks.forEach(chk => {
+          const col = chk.dataset.colname;
+          if (chk.checked) {
+            const indexType = document.querySelector(\`.index-type-select[data-colname="\${col}"]\`).value;
+            const indexName = document.querySelector(\`.index-name-input[data-colname="\${col}"]\`).value.trim();
+
+            columnIndexes[col] = {
+              index: true,
+              type: indexType,
+              name: indexName || \`idx_\${tableName}_\${col}\` // auto-generate index name if empty
+            };
+          }
+        });
+
         sendMessage('run-with-progress', {
           title: \`Importing into \${schema}.\${tableName}...\`,
           command: 'import',
@@ -207,7 +224,8 @@ export class ImportWebview extends BaseWebview {
             tableName,
             schema,
             fileFormat: fileExt,
-            columnTypes
+            columnTypes,
+            columnIndexes
           }
         });
       });
@@ -306,7 +324,31 @@ export class ImportWebview extends BaseWebview {
                           <option value="TIMESTAMP" \${c.inferredType === "TIMESTAMP" ? "selected":""}>TIMESTAMP</option>
                           <option value="BIT" \${c.inferredType === "BIT" ? "selected":""}>BIT</option>
                         </select>
-                        <span class="column-sample" title="Sample: \${c.sampleValue}">\${c.sampleValue?.substring(0, 30) || 'NULL'}</span>
+                        <span class="column-sample" title="Sample: \${c.sampleValue}">Sample: \${c.sampleValue?.substring(0, 30) || 'NULL'}</span>
+
+                        <!-- Index checkbox -->
+                        <label class="index-label">
+                            <input type="checkbox" class="index-checkbox" data-colname="\${c.name}">
+                            Index
+                        </label>
+
+                        <!-- Index type -->
+                        <select class="index-type-select" data-colname="\${c.name}" disabled>
+                          <option value="INDEX">Standard INDEX</option>
+                          <option value="BITMAP">BITMAP</option>
+                          <option value="BITSLICE">BITSLICE</option>
+                          <option value="COLUMNAR">COLUMNAR</option>
+                        </select>
+
+                        <!-- Index name -->
+                        <input 
+                          type="text" 
+                          class="index-name-input" 
+                          data-colname="\${c.name}"
+                          placeholder="index name (optional)"
+                          disabled
+                        />
+
                       </div>
                     \`).join("")}
                   </div>
@@ -323,6 +365,26 @@ export class ImportWebview extends BaseWebview {
             originalHandleMessage(message);
         }
       };
+
+      // ---------------- Handle index selection ----------------
+      document.getElementById('column-types-panel').addEventListener('change', (event) => {
+        // Check if the changed element is an index-checkbox
+        if (event.target.classList.contains('index-checkbox')) {
+          const checkbox = event.target;
+          const col = checkbox.dataset.colname;
+
+          const typeSel = document.querySelector(\`.index-type-select[data-colname="\${col}"]\`);
+          const nameInp = document.querySelector(\`.index-name-input[data-colname="\${col}"]\`);
+
+          // Enable or disable the related inputs based on the checkbox state
+          if (typeSel) {
+            typeSel.disabled = !checkbox.checked;
+          }
+          if (nameInp) {
+            nameInp.disabled = !checkbox.checked;
+          }
+        }
+      });
     `;
   }
 
@@ -542,7 +604,6 @@ export class ImportWebview extends BaseWebview {
   private async handleImport(data: ImportData): Promise<void> {
     try {
       this.log(`[ImportWebview] Starting import: ${JSON.stringify(data)}`);
-
       if (data.mode === "create") {
         // Create new table and import data
         await this.connector.importToNewTable(
@@ -550,7 +611,8 @@ export class ImportWebview extends BaseWebview {
           data.tableName,
           data.schema,
           data.fileFormat,
-          data.columnTypes
+          data.columnTypes,
+          data.columnIndexes
         );
       } else {
         // Import into existing table
@@ -582,4 +644,5 @@ export interface ImportData {
   tableName: string;
   dataAction?: "append" | "replace";
   columnTypes?: Record<string, string>;
+  columnIndexes?: Record<string, { index: boolean; type: string; name: string }>;
 }

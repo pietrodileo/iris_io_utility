@@ -429,3 +429,69 @@ select.loading {
         grid-column: 1;
     }
 }
+
+/* --- Index Checkbox --- */
+.index-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.index-checkbox:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* --- Index Type Select --- */
+.index-type-select {
+    padding: 6px 8px;
+    background-color: var(--vscode-dropdown-background);
+    color: var(--vscode-dropdown-foreground);
+    border: 1px solid var(--vscode-dropdown-border);
+    border-radius: 2px;
+    font-size: 12px;
+    font-family: var(--vscode-font-family);
+    width: 100%;
+    cursor: pointer;
+}
+
+.index-type-select:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
+}
+
+.index-type-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--vscode-input-background);
+}
+
+/* --- Index Name Input --- */
+.index-name-input {
+    padding: 6px 8px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 2px;
+    font-size: 12px;
+    font-family: var(--vscode-editor-font-family);
+    width: 95%;
+}
+
+.index-name-input:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
+}
+
+.index-name-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--vscode-input-background);
+}
+
+.index-name-input::placeholder {
+    color: var(--vscode-input-placeholderForeground);
+    font-style: italic;
+}
+

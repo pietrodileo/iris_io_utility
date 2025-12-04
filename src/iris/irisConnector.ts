@@ -104,7 +104,9 @@ export class IrisConnector extends IrisInference {
       // Get the ODBC driver from settings
       const odbcDriver = SettingsManager.getOdbcDriver(this.context);
 
-      this.log(`[IrisConnector] ODBC connecting to ${this.host}:${this.superServerPort}/${this.namespace} using ODBC driver ${odbcDriver}...`);
+      this.log(
+        `[IrisConnector] ODBC connecting to ${this.host}:${this.superServerPort}/${this.namespace} using ODBC driver ${odbcDriver}...`
+      );
 
       // Form the connection string
       const connStr = [
@@ -131,7 +133,9 @@ export class IrisConnector extends IrisInference {
       if (error.odbcErrors) {
         this.log("[IrisConnector] ODBC Driver Error Details:");
         for (const odbcError of error.odbcErrors) {
-          this.log(`  - State: ${odbcError.state}, Code: ${odbcError.code}, Message: ${odbcError.message}`);
+          this.log(
+            `  - State: ${odbcError.state}, Code: ${odbcError.code}, Message: ${odbcError.message}`
+          );
         }
       }
 
@@ -588,6 +592,32 @@ export class IrisConnector extends IrisInference {
     }
   }
 
+  async createIndex(
+    tableName: string,
+    columnName: string,
+    indexName: string,
+    indexType: string = "INDEX",
+    schema: string = "SQLUser"
+  ): Promise<void> {
+    const fullName = this.validateTableName(tableName, schema);
+
+    let sql = "";
+    if (indexType && indexType !== "INDEX") {
+      sql = `CREATE ${indexType} INDEX ${indexName} ON ${fullName}(${columnName})`;
+    } else {
+      sql = `CREATE INDEX ${indexName} ON ${fullName}(${columnName})`;
+    }
+    this.log(`Query to create index: ${sql}`);
+
+    try {
+      await this.execute(sql);
+      this.log(`Index ${indexName} created on ${fullName}.${columnName}`);
+    } catch (err: any) {
+      this.log(`Failed to create index ${indexName}: ${err.message}`);
+      throw err;
+    }
+  }
+
   // ---------- File Import Operations ----------
   /**
    * Import data into a new table
@@ -597,7 +627,8 @@ export class IrisConnector extends IrisInference {
     tableName: string,
     schema: string,
     fileFormat: string,
-    columnTypes?: Record<string, string>
+    columnTypes?: Record<string, string>,
+    columnIndexes?: Record<string, { index: boolean; type: string; name: string }>
   ): Promise<void> {
     this.log(`[IrisConnector] Importing to new table: ${schema}.${tableName}`);
 
@@ -615,7 +646,20 @@ export class IrisConnector extends IrisInference {
       await this.createTable(tableName, columns, [], schema);
       this.log(`[IrisConnector] Table created: ${schema}.${tableName}`);
 
-      // 4. Import data
+      // 4. Create indexes (NEW)
+      if (columnIndexes) {
+        for (const [colName, indexInfo] of Object.entries(columnIndexes)) {
+          // Skip columns with no index
+          if (!indexInfo || indexInfo.index !== true) {continue;}
+          const indexName = indexInfo.name || `${tableName}_${colName}_idx`; // default index name
+          const indexType = indexInfo.type || "INDEX"; // default index type
+          this.log(`[IrisConnector] Creating index ${indexName} (${indexType})...`);
+          await this.createIndex(tableName, colName, indexName, indexType, schema);
+          this.log(`[IrisConnector] Created index ${indexName} (${indexType})`);
+        }
+      }
+      
+      // 5. Import data
       await this.importDataToTable(
         filePath,
         tableName,
