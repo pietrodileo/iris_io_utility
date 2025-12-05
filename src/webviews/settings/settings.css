@@ -1,0 +1,191 @@
+body {
+    font-family: var(--vscode-font-family);
+    color: var(--vscode-foreground);
+    background-color: var(--vscode-editor-background);
+    padding: 20px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+h1 {
+    color: var(--vscode-titleBar-activeForeground);
+    border-bottom: 2px solid var(--vscode-button-background);
+    padding-bottom: 10px;
+    margin-top: 0;
+}
+
+h2 {
+    color: var(--vscode-editor-foreground);
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+.section {
+    background-color: var(--vscode-input-background);
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 1px solid var(--vscode-input-border);
+}
+
+.status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.status-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.status-icon.success {
+    background-color: #4caf50;
+    color: white;
+}
+
+.status-icon.error {
+    background-color: #f44336;
+    color: white;
+}
+
+button {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-right: 10px;
+    margin-top: 10px;
+}
+
+button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+button.secondary {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+}
+
+button.secondary:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.radio-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background-color: var(--vscode-editor-background);
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.radio-option:hover {
+    border-color: var(--vscode-button-background);
+}
+
+.radio-option.selected {
+    border-color: var(--vscode-button-background);
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.radio-option input[type="radio"] {
+    margin-top: 4px;
+    cursor: pointer;
+}
+
+.radio-content {
+    flex: 1;
+}
+
+.radio-content h3 {
+    margin: 0 0 5px 0;
+    color: var(--vscode-editor-foreground);
+}
+
+.radio-content p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.info-box {
+    background-color: var(--vscode-textBlockQuote-background);
+    border-left: 4px solid var(--vscode-button-background);
+    padding: 12px;
+    margin-top: 15px;
+    font-size: 13px;
+}
+
+.driver-list {
+    margin-top: 10px;
+    padding-left: 20px;
+    margin-bottom: 10px;
+}
+
+.driver-list li {
+    margin-bottom: 5px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.coming-soon {
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
+    font-size: 13px;
+    margin-top: 10px;
+}
+
+.driver-select {
+    width: 100%;
+    padding: 8px;
+    margin-top: 10px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.driver-select:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+}
+
+.driver-display {
+    width: 100%;
+    padding: 8px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: var(--vscode-font-family);
+    cursor: default;
+}
+
+.driver-display:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+}

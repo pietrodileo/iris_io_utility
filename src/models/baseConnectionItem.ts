@@ -14,7 +14,9 @@ export abstract class BaseConnectionItem extends vscode.TreeItem {
   ) {
     super(connection.name, collapsibleState);
 
-    this.description = `${connection.endpoint}:${connection.port}/${connection.namespace}`;
+    // Give a description upon super server and web server
+    let port = connection.superServerPort;
+    this.description = `${connection.endpoint}:${port}/${connection.namespace}`;
     this.iconPath = this.getIconForStatus(connection.status);
     this.tooltip = this.buildTooltip(connection);
 
@@ -58,7 +60,17 @@ export abstract class BaseConnectionItem extends vscode.TreeItem {
     const tooltip = new vscode.MarkdownString();
 
     // Add title with optional decoration
-    tooltip.appendMarkdown(`**Endpoint:** ${conn.endpoint}:${conn.port}\n\n`);
+    let port = conn.superServerPort;
+    if (conn.isOdbc) {
+      tooltip.appendMarkdown(`**ODBC Connection**\n\n`);
+    } else {
+      tooltip.appendMarkdown(`**Native Connection**\n\n`);
+    }
+    
+    tooltip.appendMarkdown(`**Endpoint:** ${conn.endpoint}:${port}\n\n`);
+    tooltip.appendMarkdown(`**Host** ${conn.endpoint}\n\n`);
+    tooltip.appendMarkdown(`**Super Server Port** ${conn.superServerPort}\n\n`);
+    tooltip.appendMarkdown(`**Web Server Port** ${conn.webServerPort}\n\n`);
 
     if (conn.namespace) {
       tooltip.appendMarkdown(`**Namespace:** ${conn.namespace}\n\n`);

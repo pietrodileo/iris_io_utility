@@ -4,6 +4,8 @@ import { ConnectionsProvider } from "../providers/connectionsProvider";
 import { ConnectionManager } from "../iris/connectionManager";
 import { ConnectionInputs } from "./connectionInputs";
 import { WebviewManager } from "../webviews/webViewManager";
+import { OdbcSettingsWebview } from "../webviews/OdbcSettingsWebView";
+const odbc = require("odbc");
 
 /**
  * Handles all command registrations
@@ -31,6 +33,7 @@ export class CommandHandlers {
     this.registerImportTables();
     this.registerExportTables();
     this.registerCopyConnectionInfo();
+    this.registerCheckOdbcDrivers();
   }
 
   private registerAddConnection(): void {
@@ -66,6 +69,14 @@ export class CommandHandlers {
           }
 
           const connection = item.connection as Connection;
+
+          // if connection is connected, disconnect first
+          if (this.connectionManager.isConnected(connection.id)) {
+            this.connectionManager.disconnect(connection.id);
+            connection.status = "idle";
+            connection.errorMessage = undefined;
+          }
+
           const connectionData = await ConnectionInputs.promptForConnection(
             connection
           );
@@ -280,20 +291,25 @@ export class CommandHandlers {
   /* ================== Table Import/Export ==================== */
   private registerImportTables(): void {
     this.context.subscriptions.push(
-      vscode.commands.registerCommand("irisIO.importTables",async (item: any) => {
-        if (!item?.connection) {
-          vscode.window.showErrorMessage("Invalid connection item");
-          return;
+      vscode.commands.registerCommand(
+        "irisIO.importTables",
+        async (item: any) => {
+          if (!item?.connection) {
+            vscode.window.showErrorMessage("Invalid connection item");
+            return;
+          }
+          const connection = item.connection;
+          this.webviewManager.show(connection, "import");
         }
-        const connection = item.connection;
-        this.webviewManager.show(connection, "import");
-      })
+      )
     );
   }
 
   private registerExportTables(): void {
     this.context.subscriptions.push(
-      vscode.commands.registerCommand("irisIO.exportTables",async (item: any) => {
+      vscode.commands.registerCommand(
+        "irisIO.exportTables",
+        async (item: any) => {
           if (!item?.connection) {
             vscode.window.showErrorMessage("Invalid connection item");
             return;
@@ -317,37 +333,48 @@ export class CommandHandlers {
 
           const connection = item.connection as Connection;
 
-          // Build connection info text
-          const info = [
-            `Connection: ${connection.name}`,
-            `Endpoint: ${connection.endpoint}:${connection.port}`,
-            `Namespace: ${connection.namespace}`,
-            `User: ${connection.user}`,
-            connection.description
-              ? `Description: ${connection.description}`
-              : null,
-            `Status: ${connection.status || "idle"}`,
-            connection.errorMessage
-              ? `Error: ${connection.errorMessage}`
-              : null,
-          ]
-            .filter(Boolean) // Remove null entries
-            .join("\n");
-
+          // Build connection info text as a json
+          const info_json = {
+            connection_name: connection.name,
+            endpoint: `${connection.endpoint}:${connection.superServerPort}`,
+            host: connection.endpoint,
+            superserver_port: connection.superServerPort,
+            webserver_port: connection.webServerPort,
+            namespace: connection.namespace,
+            user: connection.user,
+            description: connection.description || null,
+            status: connection.status,
+            error_message: connection.errorMessage || null
+          };
+          const info = JSON.stringify(info_json, null, 2);
+          
           // Copy to clipboard
           await vscode.env.clipboard.writeText(info);
 
           vscode.window.showInformationMessage(
             `Copied connection info for "${connection.name}" to clipboard`
           );
-
-          this.outputChannel.appendLine(`\n${"=".repeat(60)}`);
-          this.outputChannel.appendLine(
-            `[${new Date().toISOString()}] Copied connection info to clipboard`
-          );
-          this.outputChannel.appendLine(info);
         }
       )
+    );
+  }
+
+  private registerCheckOdbcDrivers(): void {
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand("irisIO.checkOdbcDrivers", async () => {
+        try {
+          // Create and show the settings webview
+          const settingsWebview = OdbcSettingsWebview.getInstance(
+            this.context,
+            this.outputChannel
+          );
+          await settingsWebview.show();
+        } catch (err: any) {
+          vscode.window.showErrorMessage(
+            `Error opening ODBC settings: ${err?.message || err}`
+          );
+        }
+      })
     );
   }
 }

@@ -1,13 +1,11 @@
 import * as vscode from "vscode";
 const irisnative = require("@intersystems/intersystems-iris-native");
-import type { IrisConnectionConfig } from "./models/connection/irisConnectionConfig";
-import {
-  TableColumn,
-  TableIndex,
-  TableDescription,
-  SchemaTable,
-} from "./models/connection/irisTables";
-import { IRISql } from "./irisSQL";
+import type { IrisConnectionConfig, ConnectionType } from "./models/connection/irisConnectionConfig";
+import {TableDescription,SchemaTable,} from "./models/connection/irisTables";
+import { ISqlClient, createSqlClient } from "./irisSQL";
+import { IrisInference, ColumnAnalysis } from "./models/sql/inference";
+import { SettingsManager } from "../webviews/settingsManager";
+import odbc from "odbc";
 
 /**
  * Class that represents a connection to an IRIS instance and provides methods for executing queries.
@@ -16,79 +14,169 @@ import { IRISql } from "./irisSQL";
  * This is an adaptation of IRIStool Python package, a wrapper around the IRIS Native Python SDK,
  *  that can be found at: https://github.com/pietrodileo/iris_tool_and_data_manager
  */
-export class IrisConnector {
+export class IrisConnector extends IrisInference {
   private connection: any;
   private iris: any;
-  private sql!: IRISql;
+  private sql!: ISqlClient; // Unified SQL Client Interface (odbc or native)
 
   public host: string;
-  public port: number;
+  public superServerPort: number;
+  public webServerPort: number;
   public namespace: string;
   public username: string;
   private password: string;
+  private connectionType: ConnectionType;
 
-  private outputChannel: vscode.OutputChannel;
+  private context: vscode.ExtensionContext;
 
   constructor(
     config: IrisConnectionConfig,
-    outputChannel: vscode.OutputChannel
+    outputChannel: vscode.OutputChannel,
+    context: vscode.ExtensionContext
   ) {
+    super(outputChannel);
     this.host = config.host;
-    this.port =
-      typeof config.port === "string" ? parseInt(config.port) : config.port;
+    this.superServerPort =
+      typeof config.superServerPort === "string"
+        ? parseInt(config.superServerPort)
+        : config.superServerPort;
+    this.webServerPort =
+      typeof config.webServerPort === "string"
+        ? parseInt(config.webServerPort)
+        : config.webServerPort;
     this.namespace = config.ns;
     this.username = config.user;
     this.password = config.pwd;
-
-    this.outputChannel = outputChannel;
+    this.connectionType = config.connectionType;
+    this.context = context;
   }
 
   // ---------- Connection Management ----------
   async connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        if (this.isConnected()) {
-          this.log("[IrisConnector] Already connected");
-          resolve();
-          return;
-        }
-
-        const config: IrisConnectionConfig = {
-          host: this.host,
-          port: this.port,
-          ns: this.namespace,
-          user: this.username,
-          pwd: this.password,
-        };
-
-        this.log("[IrisConnector] Creating connection...");
-        this.connection = irisnative.createConnection(config);
-        this.iris = this.connection.createIris();
-        this.log("[IrisConnector] Connected successfully");
-
-        this.log("[IrisConnector] Initializing SQL client...");
-        this.sql = new IRISql(this.iris, this.outputChannel);
-        this.log(`[IrisConnector] SQL client initialized: ${!!this.sql}`);
-
-        resolve();
-      } catch (err: any) {
-        console.error("[IrisConnector] Connection failed:", err.message);
-        reject(err);
+    try {
+      if (this.isConnected()) {
+        this.log("[IrisConnector] Already connected");
+        return;
       }
-    });
+
+      this.log(
+        `[IrisConnector] Creating ${this.connectionType.toUpperCase()} connection...`
+      );
+
+      if (this.connectionType === "native") {
+        await this.connectNative();
+      } else if (this.connectionType === "odbc") {
+        await this.connectOdbc();
+      } else {
+        throw new Error(`Unknown connection type: ${this.connectionType}`);
+      }
+
+      this.log("[IrisConnector] Connected successfully");
+    } catch (err: any) {
+      this.log(`[IrisConnector] Connection failed: ${err.message}`);
+      throw err;
+    }
+  }
+
+  private async connectNative(): Promise<void> {
+    this.log(
+      `[IrisConnector] Native connecting to ${this.host}:${this.superServerPort}/${this.namespace}...`
+    );
+    const connectionInfo = {
+      host: this.host,
+      port: this.superServerPort,
+      ns: this.namespace,
+      user: this.username,
+      pwd: this.password,
+    };
+
+    this.connection = irisnative.createConnection(connectionInfo);
+    this.log(`[IrisConnector] Creating IRIS`);
+    this.iris = this.connection.createIris();
+    // Create Native SQL client
+    this.sql = createSqlClient("native", this.connection, this.outputChannel);
+    this.log("[IrisConnector] Native SDK initialized");
+  }
+
+  private async connectOdbc(): Promise<void> {
+    // Build ODBC connection string
+    try {
+      // Get the ODBC driver from settings
+      const odbcDriver = SettingsManager.getOdbcDriver(this.context);
+
+      this.log(
+        `[IrisConnector] ODBC connecting to ${this.host}:${this.superServerPort}/${this.namespace} using ODBC driver ${odbcDriver}...`
+      );
+
+      // Form the connection string
+      const connStr = [
+        `DRIVER=${odbcDriver}`,
+        `SERVER=${this.host}`,
+        `PORT=${this.superServerPort}`,
+        `DATABASE=${this.namespace}`,
+        `UID=${this.username}`,
+        `PWD=${this.password}`,
+      ].join(";");
+
+      // Connect via ODBC
+      this.connection = await odbc.connect(connStr);
+
+      // Create ODBC SQL client
+      this.sql = createSqlClient("odbc", this.connection, this.outputChannel);
+
+      this.log(`[IrisConnector] ODBC connection successful.`);
+    } catch (error: any) {
+      // Log the high-level error
+      this.log(`[IrisConnector] Connection failed: ${error.message}`);
+
+      // Log the detailed ODBC errors if they exist
+      if (error.odbcErrors) {
+        this.log("[IrisConnector] ODBC Driver Error Details:");
+        for (const odbcError of error.odbcErrors) {
+          this.log(
+            `  - State: ${odbcError.state}, Code: ${odbcError.code}, Message: ${odbcError.message}`
+          );
+        }
+      }
+
+      // Re-throw or handle the error as per your application's logic
+      throw error;
+    }
   }
 
   isConnected(): boolean {
-    return this.iris !== null && this.iris !== undefined;
+    if (this.connectionType === "native") {
+      // Return true if the native connection object exists
+      return this.iris !== null && this.iris !== undefined;
+    }
+
+    if (this.connectionType === "odbc") {
+      // Return true if the odbc connection object exists AND is connected
+      return (
+        this.connection !== null &&
+        this.connection !== undefined &&
+        this.connection.connected === true
+      );
+    }
+
+    // If connectionType is unknown or not set, it's not connected.
+    return false;
   }
 
   close(): void {
     if (this.connection) {
       try {
-        this.connection.close();
+        if (this.connectionType === "odbc") {
+          // ODBC close is async, but we'll call it synchronously
+          this.connection.close().catch((err: any) => {
+            this.log(`[IrisConnector] Error closing ODBC: ${err.message}`);
+          });
+        } else {
+          this.connection.close();
+        }
         this.log("[IrisConnector] Connection closed");
       } catch (error: any) {
-        console.error("[IrisConnector] Error closing:", error.message);
+        this.log(`[IrisConnector] Error closing: ${error.message}`);
       }
       this.connection = null;
       this.iris = null;
@@ -96,23 +184,10 @@ export class IrisConnector {
     }
   }
 
-  async test(): Promise<boolean> {
-    try {
-      this.log("[IrisConnector] Starting connection test...");
-      if (!this.isConnected()) {
-        this.log("[IrisConnector] Not connected, test failed");
-        return false;
-      }
-      return true;
-    } catch (error: any) {
-      console.error("[IrisConnector] Test failed with error:", error.message);
-      console.error("[IrisConnector] Error details:", error);
-      return false;
-    }
-  }
-
   toString(): string {
-    return `IRIS connection [${this.username}@${this.host}:${this.port}/${this.namespace}]`;
+    return `IRIS connection [${this.connectionType.toUpperCase()}] [${
+      this.username
+    }@${this.host}:${this.superServerPort}/${this.namespace}]`;
   }
 
   // ---------- Query Execution ----------
@@ -121,6 +196,9 @@ export class IrisConnector {
       throw new Error("Not connected to IRIS");
     }
     if (!this.sql) {
+      this.log(
+        `[IrisConnector] SQL client not initialized. Call connect() first. Details: ${this.sql}`
+      );
       throw new Error("SQL client not initialized. Call connect() first.");
     }
     return await this.sql.query(sql, parameters);
@@ -149,7 +227,6 @@ export class IrisConnector {
     sql += " ORDER BY TABLE_SCHEMA ";
 
     const results = await this.query(sql, parameters);
-    this.log(`[IrisConnector] Got ${results.length} schemas`);
     return results.map((row) => row.TABLE_SCHEMA);
   }
 
@@ -515,258 +592,33 @@ export class IrisConnector {
     }
   }
 
-  // ---------- File Analysis & Import Operations ----------
+  async createIndex(
+    tableName: string,
+    columnName: string,
+    indexName: string,
+    indexType: string = "INDEX",
+    schema: string = "SQLUser"
+  ): Promise<void> {
+    const fullName = this.validateTableName(tableName, schema);
 
-  /**
-   * Analyze a file and infer column types
-   */
-  async analyzeFile(
-    filePath: string,
-    fileFormat: string
-  ): Promise<{ columns: ColumnAnalysis[] }> {
-    this.log(`[IrisConnector] Analyzing file: ${filePath} (${fileFormat})`);
-
-    const fs = require("fs");
-    let columns: ColumnAnalysis[] = [];
+    let sql = "";
+    if (indexType && indexType !== "INDEX") {
+      sql = `CREATE ${indexType} INDEX ${indexName} ON ${fullName}(${columnName})`;
+    } else {
+      sql = `CREATE INDEX ${indexName} ON ${fullName}(${columnName})`;
+    }
+    this.log(`Query to create index: ${sql}`);
 
     try {
-      if (fileFormat === "csv" || fileFormat === "txt") {
-        columns = await this.analyzeCsvFile(filePath);
-      } else if (fileFormat === "json") {
-        columns = await this.analyzeJsonFile(filePath);
-      } else if (fileFormat === "xlsx" || fileFormat === "xls") {
-        columns = await this.analyzeExcelFile(filePath);
-      } else {
-        throw new Error(`Unsupported file format: ${fileFormat}`);
-      }
-
-      this.log(
-        `[IrisConnector] Analysis complete: ${columns.length} columns found`
-      );
-      return { columns };
-    } catch (error: any) {
-      this.log(`[IrisConnector] Analysis failed: ${error.message}`);
-      throw error;
+      await this.execute(sql);
+      this.log(`Index ${indexName} created on ${fullName}.${columnName}`);
+    } catch (err: any) {
+      this.log(`Failed to create index ${indexName}: ${err.message}`);
+      throw err;
     }
   }
 
-  private async analyzeCsvFile(filePath: string): Promise<ColumnAnalysis[]> {
-    const fs = require("fs");
-    const content = fs.readFileSync(filePath, "utf8");
-
-    // Split by lines and filter empty
-    const lines = content.split(/\r?\n/).filter((line: string) => line.trim() !== "");
-
-    if (lines.length === 0) {
-      throw new Error("File is empty");
-    }
-
-    // Detect delimiter (comma, semicolon, or tab)
-    const firstLine = lines[0];
-    const delimiter = firstLine.includes("\t")
-      ? "\t"
-      : firstLine.includes(";")
-      ? ";"
-      : ",";
-
-    // Parse headers
-    const headers = this.parseCsvLine(lines[0], delimiter);
-
-    // Get sample rows (up to 100 for analysis)
-    const sampleSize = Math.min(100, lines.length - 1);
-    const sampleRows = lines
-      .slice(1, sampleSize + 1)
-      .map((line: string) => this.parseCsvLine(line, delimiter));
-
-    // Analyze each column
-    return headers.map((header, index) => {
-      const originalName = header;
-      const sanitizedName = this.sanitizeColumnName(header);
-      const values = sampleRows
-        .map((row: any[]) => row[index])
-        .filter((v: string) => v && v.trim() !== "");
-
-      return {
-        name: sanitizedName,
-        originalName,
-        inferredType: this.inferColumnType(values),
-        sampleValue: values[0] || "NULL",
-      };
-    });
-  }
-
-  private async analyzeJsonFile(filePath: string): Promise<ColumnAnalysis[]> {
-    const fs = require("fs");
-    const content = fs.readFileSync(filePath, "utf8");
-    const json = JSON.parse(content);
-
-    // Handle both array and single object
-    const sample = Array.isArray(json) ? json[0] : json;
-
-    if (!sample || typeof sample !== "object") {
-      throw new Error(
-        "Invalid JSON structure: expected object or array of objects"
-      );
-    }
-
-    return Object.entries(sample).map(([key, value]) => ({
-      name: this.sanitizeColumnName(key),
-      originalName: key,
-      inferredType: this.inferTypeFromValue(value),
-      sampleValue: String(value).substring(0, 50),
-    }));
-  }
-
-  private async analyzeExcelFile(filePath: string): Promise<ColumnAnalysis[]> {
-    // This requires xlsx library: npm install xlsx
-    try {
-      const XLSX = require("xlsx");
-      const workbook = XLSX.readFile(filePath);
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-
-      // Convert to JSON
-      const data = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-
-      if (data.length === 0) {
-        throw new Error("Excel file is empty");
-      }
-
-      const sample = data[0] as Record<string, any>;
-      const sampleRows = data.slice(0, 100);
-
-      return Object.keys(sample).map((key) => {
-        const values = sampleRows
-          .map((row: { [x: string]: any; }) => row[key])
-          .filter((v: string) => v !== "");
-
-        return {
-          name: this.sanitizeColumnName(key),
-          originalName: key,
-          inferredType: this.inferColumnType(values.map(String)),
-          sampleValue: String(values[0] || "NULL").substring(0, 50),
-        };
-      });
-    } catch (error: any) {
-      if (error.code === "MODULE_NOT_FOUND") {
-        throw new Error(
-          'Excel support requires "xlsx" package. Please install it: npm install xlsx'
-        );
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Parse a CSV line handling quoted fields
-   */
-  private parseCsvLine(line: string, delimiter: string): string[] {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-
-      if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === delimiter && !inQuotes) {
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    result.push(current.trim());
-
-    return result;
-  }
-
-  /**
-   * Sanitize column name for SQL compatibility
-   */
-  private sanitizeColumnName(name: string): string {
-    return name
-      .trim()
-      .replace(/[^A-Za-z0-9_]/g, "_")
-      .replace(/^(\d)/, "_$1")
-      .substring(0, 128);
-  }
-
-  /**
-   * Infer SQL type from sample values
-   */
-  private inferColumnType(values: string[]): string {
-    if (values.length === 0) {return "VARCHAR(255)";}
-
-    const nonEmpty = values.filter((v) => v && v.trim() !== "");
-    if (nonEmpty.length === 0) {return "VARCHAR(255)";}
-
-    // Check for integer
-    if (nonEmpty.every((v) => /^-?\d+$/.test(v))) {
-      const max = Math.max(...nonEmpty.map((v) => Math.abs(parseInt(v))));
-      return max > 2147483647 ? "BIGINT" : "INTEGER";
-    }
-
-    // Check for decimal/numeric
-    if (nonEmpty.every((v) => /^-?\d+(\.\d+)?$/.test(v))) {
-      return "DOUBLE";
-    }
-
-    // Check for date
-    if (nonEmpty.every((v) => /^\d{4}-\d{2}-\d{2}/.test(v))) {
-      // Check if includes time
-      if (nonEmpty.some((v) => /\d{2}:\d{2}:\d{2}/.test(v))) {
-        return "TIMESTAMP";
-      }
-      return "DATE";
-    }
-
-    // Check for boolean
-    if (nonEmpty.every((v) => /^(true|false|0|1|yes|no)$/i.test(v))) {
-      return "BOOLEAN";
-    }
-
-    // Check string length
-    const maxLength = Math.max(...nonEmpty.map((v) => v.length));
-    if (maxLength > 4000) {
-      return "CLOB";
-    } else if (maxLength > 255) {
-      return "VARCHAR(4000)";
-    }
-
-    return "VARCHAR(255)";
-  }
-
-  /**
-   * Infer type from a JSON value
-   */
-  private inferTypeFromValue(value: any): string {
-    if (value === null || value === undefined) {return "VARCHAR(255)";}
-
-    if (typeof value === "number") {
-      return Number.isInteger(value) ? "INTEGER" : "DOUBLE";
-    }
-
-    if (typeof value === "boolean") {return "BOOLEAN";}
-
-    if (typeof value === "string") {
-      if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-        return /\d{2}:\d{2}:\d{2}/.test(value) ? "TIMESTAMP" : "DATE";
-      }
-      return value.length > 255 ? "VARCHAR(4000)" : "VARCHAR(255)";
-    }
-
-    if (typeof value === "object") {return "CLOB";} // Store as JSON string
-
-    return "VARCHAR(255)";
-  }
-
+  // ---------- File Import Operations ----------
   /**
    * Import data into a new table
    */
@@ -775,7 +627,8 @@ export class IrisConnector {
     tableName: string,
     schema: string,
     fileFormat: string,
-    columnTypes?: Record<string, string>
+    columnTypes?: Record<string, string>,
+    columnIndexes?: Record<string, { index: boolean; type: string; name: string }>
   ): Promise<void> {
     this.log(`[IrisConnector] Importing to new table: ${schema}.${tableName}`);
 
@@ -793,7 +646,20 @@ export class IrisConnector {
       await this.createTable(tableName, columns, [], schema);
       this.log(`[IrisConnector] Table created: ${schema}.${tableName}`);
 
-      // 4. Import data
+      // 4. Create indexes (NEW)
+      if (columnIndexes) {
+        for (const [colName, indexInfo] of Object.entries(columnIndexes)) {
+          // Skip columns with no index
+          if (!indexInfo || indexInfo.index !== true) {continue;}
+          const indexName = indexInfo.name || `${tableName}_${colName}_idx`; // default index name
+          const indexType = indexInfo.type || "INDEX"; // default index type
+          this.log(`[IrisConnector] Creating index ${indexName} (${indexType})...`);
+          await this.createIndex(tableName, colName, indexName, indexType, schema);
+          this.log(`[IrisConnector] Created index ${indexName} (${indexType})`);
+        }
+      }
+      
+      // 5. Import data
       await this.importDataToTable(
         filePath,
         tableName,
@@ -872,7 +738,9 @@ export class IrisConnector {
 
     if (fileFormat === "csv" || fileFormat === "txt") {
       const content = fs.readFileSync(filePath, "utf8");
-      const lines = content.split(/\r?\n/).filter((line: string) => line.trim() !== "");
+      const lines = content
+        .split(/\r?\n/)
+        .filter((line: string) => line.trim() !== "");
       const delimiter = lines[0].includes("\t")
         ? "\t"
         : lines[0].includes(";")
@@ -934,19 +802,4 @@ export class IrisConnector {
 
     this.log(`[IrisConnector] Total rows inserted: ${inserted}`);
   }
-
-  /**
-   * Log message with timestamp
-   */
-  public log(message: string): void {
-    const timestamp = new Date().toISOString();
-    this.outputChannel.appendLine(`[${timestamp}] ${message}`);
-  }
-}
-
-interface ColumnAnalysis {
-  name: string;
-  originalName: string;
-  inferredType: string;
-  sampleValue: string;
 }

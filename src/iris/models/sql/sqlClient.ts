@@ -213,3 +213,4 @@ export class SQLStatement {
     this.outputChannel.appendLine(`[${timestamp}] ${message}`);
   }
 }
+
