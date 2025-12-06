@@ -61,6 +61,22 @@ export class ImportWebview extends BaseWebview {
         return filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
       };
 
+      // ---------------- CANCEL BUTTONS ----------------
+      const cancelBtnNew = document.getElementById('cancel-btn-new');
+      const cancelBtnExisting = document.getElementById('cancel-btn-existing');
+
+      if (cancelBtnNew) {
+        cancelBtnNew.addEventListener('click', () => {
+          sendMessage('cancel', null);
+        });
+      }
+
+      if (cancelBtnExisting) {
+        cancelBtnExisting.addEventListener('click', () => {
+          sendMessage('cancel', null);
+        });
+      }
+
       // ---------------- TAB HANDLERS ----------------
       document.getElementById('tab-new').addEventListener('click', () => {
         document.getElementById('content-new').classList.add('active');
@@ -184,6 +200,10 @@ export class ImportWebview extends BaseWebview {
         const tableName = document.getElementById('new-table-name').value.trim();
         const fileExt = getFileExtension(filePath);
 
+        document.getElementById('cancel-btn').addEventListener('click', (e) => {
+          sendMessage('cancel', null);
+        });
+
         if (!filePath) return sendMessage('error', 'Please select a file to import');
         if (!schema) return sendMessage('error', 'Please enter or select a schema name');
         if (!tableName) return sendMessage('error', 'Please enter a table name');
@@ -237,6 +257,10 @@ export class ImportWebview extends BaseWebview {
         const tableName = document.getElementById('table-import').value;
         const dataAction = document.querySelector('input[name="data-action"]:checked').value;
         const fileExt = getFileExtension(filePath);
+
+        document.getElementById('cancel-btn').addEventListener('click', (e) => {
+          sendMessage('cancel', null);
+        });
 
         if (!filePath) return sendMessage('error', 'Please select a file to import');
         if (!schema || !tableName)

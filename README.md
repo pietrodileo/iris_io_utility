@@ -48,7 +48,7 @@ A powerful Visual Studio Code extension for seamless data import/export operatio
   - CSV (Comma-Separated Values)
   - TXT (With custom delimiter)
   - JSON
-  - XLSX/XLS (Microsoft Excel)
+  - XLSX (Microsoft Excel)
 
 ## 📦 Prerequisites
 
@@ -200,7 +200,7 @@ The Import feature allows you to load data from various file formats into IRIS t
 #### Step 2: Select File
 
 1. Click **"Browse..."** to select your data file
-2. Supported formats: CSV, TXT, JSON, XLSX, XLS
+2. Supported formats: CSV, TXT, JSON, XLSX
 3. The file path will appear in the input field
 
 #### Step 3: Choose Import Mode

@@ -4,6 +4,7 @@ import { Connection } from "../models/baseConnection";
 import { ConnectionManager } from "../iris/connectionManager";
 import * as path from "path";
 import * as fs from "fs";
+const XLSX = require("xlsx");
 
 /**
  * Webview for exporting data from IRIS
@@ -326,20 +327,56 @@ export class ExportWebview extends BaseWebview {
             data.table,
             data.schema
           );
-          exportData = JSON.stringify(jsonData, null, 2);
+          // Custom replacer to handle BigInt serialization
+          exportData = JSON.stringify(
+            jsonData,
+            (key, value) => {
+              if (typeof value === "bigint") {
+                return value.toString();
+              }
+              return value;
+            },
+            2
+          );
           break;
-        // case "xlsx": To do in the future
-        //   // For Excel, we would need a library like 'xlsx' or 'exceljs'
-        //   // For now, export as CSV with .xlsx extension (placeholder)
-        //   this.postMessage(
-        //     "error",
-        //     "XLSX export requires additional library. Using CSV format instead."
-        //   );
-        //   exportData = await this.connector.exportTableToCsv(
-        //     data.table,
-        //     data.schema
-        //   );
-        //   break;
+        case "xlsx":
+          const xlsxData = await this.connector.exportTableToJson(
+            data.table,
+            data.schema
+          );
+
+          // Convert BigInt values to strings for Excel
+          const sanitizedData = xlsxData.map((row) => {
+            const newRow: any = {};
+            for (const [key, value] of Object.entries(row)) {
+              if (typeof value === "bigint") {
+                newRow[key] = value.toString();
+              } else if (value === null || value === undefined) {
+                newRow[key] = "";
+              } else {
+                newRow[key] = value;
+              }
+            }
+            return newRow;
+          });
+
+          // Create workbook and worksheet
+          const workbook = XLSX.utils.book_new();
+          const worksheet = XLSX.utils.json_to_sheet(sanitizedData);
+
+          // Add worksheet to workbook
+          XLSX.utils.book_append_sheet(
+            workbook,
+            worksheet,
+            data.table.substring(0, 31)
+          ); // Sheet name max 31 chars
+
+          // Write to buffer
+          exportData = XLSX.write(workbook, {
+            type: "buffer",
+            bookType: "xlsx",
+          });
+          break;
         default:
           throw new Error(`Unsupported format: ${data.format}`);
       }
@@ -365,7 +402,7 @@ export class ExportWebview extends BaseWebview {
 export interface ExportData {
   schema: string;
   table: string;
-  format: "csv" | "json" | "txt"; // | "xlsx";
+  format: "csv" | "json" | "txt" | "xlsx";
   fileName: string;
   folderPath: string;
 }
