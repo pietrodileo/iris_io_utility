@@ -183,6 +183,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/papaparse": "^5.5.1",
     "@types/vscode": "^1.106.1",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
@@ -193,6 +194,8 @@
   "dependencies": {
     "@intersystems/intersystems-iris-native": "^2.0.3",
     "child_process": "^1.0.2",
-    "odbc": "^2.4.9"
+    "odbc": "^2.4.9",
+    "papaparse": "^5.5.3",
+    "xlsx": "^0.18.5"
   }
 }

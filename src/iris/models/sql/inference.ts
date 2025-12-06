@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+const fs = require("fs");
+import Papa from "papaparse";
 
 export interface ColumnAnalysis {
   name: string;
@@ -23,7 +25,6 @@ export abstract class IrisInference {
   ): Promise<{ columns: ColumnAnalysis[] }> {
     this.log(`[IrisConnector] Analyzing file: ${filePath} (${fileFormat})`);
 
-    const fs = require("fs");
     let columns: ColumnAnalysis[] = [];
 
     try {
@@ -47,55 +48,59 @@ export abstract class IrisInference {
     }
   }
 
+  /**
+   * Analyze a CSV file and infer column types
+  */
   async analyzeCsvFile(filePath: string): Promise<ColumnAnalysis[]> {
-    const fs = require("fs");
-    const content = fs.readFileSync(filePath, "utf8");
+    try {
+      const content = fs.readFileSync(filePath, "utf8");
 
-    // Split by lines and filter empty
-    const lines = content
-      .split(/\r?\n/)
-      .filter((line: string) => line.trim() !== "");
+      const parsed = Papa.parse(content, {
+        header: true,
+        delimiter: ",",     // FIXED — no autodetection
+        skipEmptyLines: true,
+        dynamicTyping: false
+      });
 
-    if (lines.length === 0) {
-      throw new Error("File is empty");
+      if (parsed.errors.length > 0) {
+        throw new Error("CSV parsing failed: " + parsed.errors[0].message);
+      }
+
+      const rows = parsed.data as any[];
+
+      if (rows.length === 0) {
+        throw new Error("CSV has headers but no data rows");
+      }
+
+      // Extract headers from Papa Parse metadata
+      const headers = parsed.meta.fields || [];
+
+      // Sample up to 100 rows for type inference
+      const sampleRows = rows.slice(0, 100);
+
+      const result: ColumnAnalysis[] = headers.map((originalName: string) => {
+        const sanitizedName = this.sanitizeColumnName(originalName);
+
+        const values = sampleRows
+          .map((row) => row[originalName])
+          .filter((v) => v !== null && String(v).trim() !== "");
+
+        return {
+          name: sanitizedName,
+          originalName,
+          inferredType: this.inferColumnType(values),
+          sampleValue: values.length > 0 ? values[0] : "NULL"
+        };
+      });
+
+      return result;
+
+    } catch (error: any) {
+      throw new Error(`Failed to analyze CSV file: ${error.message}`);
     }
-
-    // Detect delimiter (comma, semicolon, or tab)
-    const firstLine = lines[0];
-    const delimiter = firstLine.includes("\t")
-      ? "\t"
-      : firstLine.includes(";")
-      ? ";"
-      : ",";
-
-    // Parse headers
-    const headers = this.parseCsvLine(lines[0], delimiter);
-
-    // Get sample rows (up to 100 for analysis)
-    const sampleSize = Math.min(100, lines.length - 1);
-    const sampleRows = lines
-      .slice(1, sampleSize + 1)
-      .map((line: string) => this.parseCsvLine(line, delimiter));
-
-    // Analyze each column
-    return headers.map((header, index) => {
-      const originalName = header;
-      const sanitizedName = this.sanitizeColumnName(header);
-      const values = sampleRows
-        .map((row: any[]) => row[index])
-        .filter((v: string) => v && v.trim() !== "");
-
-      return {
-        name: sanitizedName,
-        originalName,
-        inferredType: this.inferColumnType(values),
-        sampleValue: values[0] || "NULL",
-      };
-    });
   }
 
   private async analyzeJsonFile(filePath: string): Promise<ColumnAnalysis[]> {
-    const fs = require("fs");
     const content = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(content);
 
@@ -157,36 +162,6 @@ export abstract class IrisInference {
   }
 
   /**
-   * Parse a CSV line handling quoted fields
-   */
-  parseCsvLine(line: string, delimiter: string): string[] {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-
-      if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === delimiter && !inQuotes) {
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    result.push(current.trim());
-
-    return result;
-  }
-
-  /**
    * Sanitize column name for SQL compatibility
    */
   private sanitizeColumnName(name: string): string {
@@ -230,9 +205,14 @@ export abstract class IrisInference {
       return "DATE";
     }
 
-    // Check for boolean
-    if (nonEmpty.every((v) => /^(true|false|0|1|yes|no)$/i.test(v))) {
-      return "BIT";// "BOOLEAN";
+    // strict boolean (0/1)
+    if (nonEmpty.every((v) => /^(0|1)$/i.test(v))) {
+      return "BIT";
+    }
+
+    // yes/no or true/false → treat as text
+    if (nonEmpty.every((v) => /^(yes|no|true|false)$/i.test(v))) {
+      return "VARCHAR(10)";
     }
 
     // Check string length

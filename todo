@@ -1,0 +1,10 @@
+- quando importo txt fai scegliere il separatore
+- create readme
+
+- allow xlsx import
+    -> ok
+- test csv e xlsx
+    -> ok
+- test export
+    -> Export failed: Do not know how to serialize a BigInt quando esporto ConfigurazioniLis.Convenzioni
+
