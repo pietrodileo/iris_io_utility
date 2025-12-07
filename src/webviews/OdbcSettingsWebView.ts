@@ -1,7 +1,5 @@
 import * as vscode from "vscode";
 import { OdbcDriverChecker } from "../iris/models/connection/odbcDriverChecker";
-import * as path from "path";
-import * as fs from "fs";
 import { SettingsManager } from "./settingsManager";
 import { PathHelper } from "../utils/pathHelper";
 
@@ -42,11 +40,10 @@ export class OdbcSettingsWebview {
     }
 
     // Get current connection type from workspaceState (no default)
-    const currentConnectionType = SettingsManager.getDefaultConnectionType(this.context);
+    // const currentConnectionType = SettingsManager.getDefaultConnectionType(this.context);
+    const currentConnectionType = "odbc";
 
-    this.log(
-      `[OdbcSettingsWebview] Opening settings with connection type: ${currentConnectionType}`
-    );
+    this.log(`[OdbcSettingsWebview] Opening settings with connection type: ${currentConnectionType}`);
 
     // Create new webview panel
     this.panel = vscode.window.createWebviewPanel(
@@ -109,28 +106,21 @@ export class OdbcSettingsWebview {
       case "setOdbcDriver":
         await this.setOdbcDriver(message.data);
         break;
-      case "setDefaultConnectionType":
-        await this.setDefaultConnectionType(message.data);
-        break;
+      // case "setDefaultConnectionType":
+      //   await this.setDefaultConnectionType(message.data);
+      //   break;
     }
   }
 
   private async handleCheckDrivers(): Promise<void> {
     try {
       this.postMessage("loading", true);
-
       this.log("[OdbcSettingsWebview] Checking ODBC drivers...");
       const driverChecker = new OdbcDriverChecker(this.outputChannel);
       const driversAvailable = await driverChecker.checkOdbcDrivers();
-      this.log(
-        `[OdbcSettingsWebview] ODBC drivers available: ${driversAvailable}`
-      );
+      this.log(`[OdbcSettingsWebview] ODBC drivers available: ${driversAvailable}`);
       const availableDrivers = await driverChecker.listInstalledDrivers();
-      this.log(
-        `[OdbcSettingsWebview] Available drivers: ${JSON.stringify(
-          availableDrivers
-        )}`
-      );
+      this.log(`[OdbcSettingsWebview] Available drivers: ${JSON.stringify(availableDrivers)}`);
 
       const selectedDriver = SettingsManager.getOdbcDriver(this.context);
 
@@ -173,40 +163,40 @@ export class OdbcSettingsWebview {
     }
   }
 
-  private async setDefaultConnectionType(
-    type: "native" | "odbc"
-  ): Promise<void> {
-    try {
-      this.log(
-        `[OdbcSettingsWebview] Setting default connection type to: ${type}`
-      );
+  // private async setDefaultConnectionType(
+  //   type: "native" | "odbc"
+  // ): Promise<void> {
+  //   try {
+  //     this.log(
+  //       `[OdbcSettingsWebview] Setting default connection type to: ${type}`
+  //     );
 
-      await this.context.workspaceState.update(this.CONNECTION_TYPE_KEY, type);
+  //     await this.context.workspaceState.update(this.CONNECTION_TYPE_KEY, type);
 
-      this.log(
-        `[OdbcSettingsWebview] Successfully saved connection type: ${type}`
-      );
+  //     this.log(
+  //       `[OdbcSettingsWebview] Successfully saved connection type: ${type}`
+  //     );
 
-      // Show success message
-      vscode.window.showInformationMessage(
-        `Default connection type set to: ${type.toUpperCase()}`
-      );
+  //     // Show success message
+  //     vscode.window.showInformationMessage(
+  //       `Default connection type set to: ${type.toUpperCase()}`
+  //     );
 
-      // Send confirmation back to webview
-      this.postMessage("connection-type-saved", type);
-    } catch (error: any) {
-      this.log(
-        `[OdbcSettingsWebview] Error saving connection type: ${error.message}`
-      );
-      vscode.window.showErrorMessage(
-        `Failed to save connection type: ${error.message}`
-      );
-      this.postMessage(
-        "error",
-        `Failed to save connection type: ${error.message}`
-      );
-    }
-  }
+  //     // Send confirmation back to webview
+  //     this.postMessage("connection-type-saved", type);
+  //   } catch (error: any) {
+  //     this.log(
+  //       `[OdbcSettingsWebview] Error saving connection type: ${error.message}`
+  //     );
+  //     vscode.window.showErrorMessage(
+  //       `Failed to save connection type: ${error.message}`
+  //     );
+  //     this.postMessage(
+  //       "error",
+  //       `Failed to save connection type: ${error.message}`
+  //     );
+  //   }
+  // }
 
   private postMessage(type: string, data: any): void {
     if (this.panel) {
@@ -276,12 +266,12 @@ export class OdbcSettingsWebview {
       });
 
       // Save connection type button
-      document.getElementById('save-connection-type-btn').addEventListener('click', () => {
-        const selectedRadio = document.querySelector('input[name="connectionType"]:checked');
-        if (selectedRadio) {
-          sendMessage('setDefaultConnectionType', selectedRadio.value);
-        }
-      });
+      // document.getElementById('save-connection-type-btn').addEventListener('click', () => {
+      //   const selectedRadio = document.querySelector('input[name="connectionType"]:checked');
+      //   if (selectedRadio) {
+      //     sendMessage('setDefaultConnectionType', selectedRadio.value);
+      //   }
+      // });
 
       function updateConnectionTypeUI(type) {
         // Update UI only
@@ -387,19 +377,19 @@ export class OdbcSettingsWebview {
               checkBtn.textContent = message.data ? 'Checking...' : 'Check ODBC Drivers';
             }
             break;
-          case 'connection-type-saved':
-            // Show visual feedback that save was successful
-            const saveBtn = document.getElementById('save-connection-type-btn');
-            if (saveBtn) {
-              const originalText = saveBtn.textContent;
-              saveBtn.textContent = '✓ Saved!';
-              saveBtn.style.backgroundColor = '#4caf50';
-              setTimeout(() => {
-                saveBtn.textContent = originalText;
-                saveBtn.style.backgroundColor = '';
-              }, 2000);
-            }
-            break;
+          // case 'connection-type-saved':
+          //   // Show visual feedback that save was successful
+          //   const saveBtn = document.getElementById('save-connection-type-btn');
+          //   if (saveBtn) {
+          //     const originalText = saveBtn.textContent;
+          //     saveBtn.textContent = '✓ Saved!';
+          //     saveBtn.style.backgroundColor = '#4caf50';
+          //     setTimeout(() => {
+          //       saveBtn.textContent = originalText;
+          //       saveBtn.style.backgroundColor = '';
+          //     }, 2000);
+          //   }
+          //   break;
           case 'initial-driver':
             const box = document.getElementById('initialDriverBox');
             const display = document.getElementById('initialDriverDisplay');

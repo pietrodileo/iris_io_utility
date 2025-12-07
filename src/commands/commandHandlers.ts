@@ -5,7 +5,6 @@ import { ConnectionManager } from "../iris/connectionManager";
 import { ConnectionInputs } from "./connectionInputs";
 import { WebviewManager } from "../webviews/webViewManager";
 import { OdbcSettingsWebview } from "../webviews/OdbcSettingsWebView";
-const odbc = require("odbc");
 
 /**
  * Handles all command registrations

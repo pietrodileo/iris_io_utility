@@ -4,9 +4,10 @@
   "displayName": "IRIS IO Utility",
   "description": "This is an utility extension to connect and interact with the tables of an InterSystems IRIS database",
   "version": "0.0.1",
+  "icon": "dist/resources/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pietrodileo/iris_io_utility.git"
+    "url": "https://github.com/pietrodileo/iris_io_utility/tree/lightweightVersionODBConly.git"
   },
   "engines": {
     "vscode": "^1.106.1"
@@ -201,7 +202,6 @@
     "typescript-eslint": "^8.46.3"
   },
   "dependencies": {
-    "@intersystems/intersystems-iris-native": "^2.0.3",
     "child_process": "^1.0.2",
     "odbc": "^2.4.9",
     "papaparse": "^5.5.3",

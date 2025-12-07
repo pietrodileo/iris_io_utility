@@ -1,0 +1,101 @@
+<div class="container">
+  <div class="header">
+    <h1>Export Data</h1>
+    <div class="connection-info">
+      Connected to: {{connectionName}} ({{connectionEndpoint}}:{{connectionPort}} - Namespace: {{connectionNamespace}})
+    </div>
+  </div>
+
+  <div class="info-message">
+    Select a schema and table to export data from IRIS database.
+  </div>
+
+  <div class="form-group">
+    <small class="field-hint">
+      Click Search to load schemas. Enter text to filter, or leave empty to load all.
+    </small>
+    <div class="schema-search-wrapper">
+      <input type="text" id="schema-search" placeholder="Enter keyword to filter schemas..." />
+      <button type="button" id="search-schema-btn">Search Schemas</button>
+    </div>
+    <small class="field-hint">
+      Leave empty to load all schemas or type text to filter results.
+    </small>
+  </div>
+
+  <div class="form-group">
+    <label for="schema">Schemas</label>
+    <select id="schema" disabled>
+      <option value="">Loading schemas...</option>
+    </select>
+    <small class="field-hint">
+      Select a schema to load tables
+    </small>
+  </div>
+
+  <div class="form-group">
+    <label for="table">Table *</label>
+    <select id="table" required disabled>
+      <option value="">Select a schema first</option>
+    </select>
+    <small class="field-hint">
+      Select the table to export
+    </small>
+  </div>
+
+  <div class="form-group">
+    <label for="format">Export Format *</label>
+    <select id="format" required>
+      <option value="csv">CSV</option>
+      <option value="txt">TXT</option>
+      <option value="json">JSON</option>
+      <option value="xlsx">XLSX</option>
+    </select>
+    <small class="field-hint">
+      Choose the output file format
+    </small>
+  </div>
+
+  <!-- TXT Delimiter Options (shown only when TXT is selected) -->
+  <div class="form-group" id="txt-delimiter-group" style="display: none;">
+    <label for="txt-delimiter">TXT Delimiter</label>
+    <select id="txt-delimiter">
+      <option value=",">Comma (,)</option>
+      <option value=";">Semicolon (;)</option>
+      <option value="|">Pipe (|)</option>
+      <option value="custom">Custom...</option>
+    </select>
+    <input type="text" id="txt-delimiter-custom" placeholder="Enter custom delimiter (e.g., ::)" style="display: none; margin-top: 8px;" maxlength="5" />
+    <small class="field-hint">
+      Choose the delimiter character(s) for TXT format
+    </small>
+  </div>
+
+  <div class="form-group">
+    <label for="file-name">File Name</label>
+    <input type="text" id="file-name" placeholder="Leave empty for auto-generated name" />
+    <small class="field-hint">
+      If left empty, format will be: schema_table_timestamp
+    </small>
+  </div>
+
+  <div class="form-group">
+    <label for="folder-path">Output Folder</label>
+    <div class="file-input-wrapper">
+      <input type="text" id="folder-path" placeholder="Leave empty to use workspace folder..." readonly />
+      <button type="button" id="browse-folder-btn">Browse...</button>
+    </div>
+    <small class="field-hint">
+      Select the destination folder or leave empty to export to workspace root
+    </small>
+  </div>
+
+  <div id="workspace-banner" class="banner" style="display: none;">
+    <span>Export will be saved to workspace folder</span>
+  </div>
+
+  <div class="button-group">
+    <button type="button" id="export-btn">Export Data</button>
+    <button type="button" id="cancel-btn" class="secondary">Cancel</button>
+  </div>
+</div>
