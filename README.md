@@ -10,11 +10,7 @@ A powerful Visual Studio Code extension for seamless data import/export operatio
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Getting Started](#getting-started)
-  - [Option 1: Using the Containerized IRIS Instance](#option-1-using-the-containerized-iris-instance)
-  - [Option 2: Connecting to Your Own IRIS Instance](#option-2-connecting-to-your-own-iris-instance)
-- [Connection Types](#connection-types)
-  - [Native SDK Connection](#native-sdk-connection)
-  - [ODBC Connection](#odbc-connection)
+- [ODBC Connection](#odbc-connection)
 - [Using the Extension](#using-the-extension)
   - [Managing Connections](#managing-connections)
   - [Importing Data](#importing-data)
@@ -26,11 +22,8 @@ A powerful Visual Studio Code extension for seamless data import/export operatio
 
 ## ✨ Features
 
-- **Dual Connection Methods**
-  - Native Node.js SDK connection (built-in, no drivers required)
-  - ODBC connection (requires InterSystems IRIS drivers, offers better performance)
-
 - **Smart Data Import and Export**
+  - Use ODBC connection to connect (requires InterSystems IRIS drivers)
   - Automatic data type inference from file content
   - Converts inferred types to IRIS SQL-compliant data types
   - You can choose to create a new table automatically while importing data or to append or replace data in an existing table
@@ -55,16 +48,9 @@ A powerful Visual Studio Code extension for seamless data import/export operatio
 - **Visual Studio Code** 1.80.0 or higher
 - **Node.js** 14.0 or higher
 - **InterSystems IRIS** instance (local, remote, or containerized)
-- **ODBC Drivers** (optional, for ODBC connections)
+- **ODBC Drivers** (for ODBC connections)
 
 ## 🚀 Installation
-
-### From VS Code Marketplace
-
-1. Open Visual Studio Code
-2. Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
-3. Search for "IRIS IO Utility"
-4. Click Install
 
 ### From VSIX File
 
@@ -121,7 +107,7 @@ The container will start an InterSystems IRIS instance with the following config
    - **Password**: `SYS`
     If you prefer, you can try to connect to another IRIS instance. The extension works both with local (SSH as well) and remote instances.
 4. Open the settings page (gear icon) and select the **Connection Type**:
-    - Select `Native SDK` (or `ODBC` if drivers are installed)
+    - Check for `ODBC` drivers. If InterSystems IRIS drivers are not found install it and select them among the available drivers list.
 
 #### Step 4: Connect
 
@@ -129,17 +115,11 @@ The container will start an InterSystems IRIS instance with the following config
 2. Click the **Connect** icon (plug icon)
 3. Wait for the connection status to change to "Connected" (green checkmark)
 
-## 🔌 Connection Types
-
-### Native SDK Connection
-
-The **Native SDK** connection uses the InterSystems Node.js SDK and requires no additional drivers.
-
-### ODBC Connection
+## ODBC Connection
 
 The **ODBC** connection uses the InterSystems IRIS ODBC driver for enhanced performance.
 
-#### Installing ODBC Drivers
+### Installing ODBC Drivers
 
 1. Open the IRIS IO Utility sidebar
 2. Click the **Settings** icon (gear icon) at the top
@@ -161,8 +141,7 @@ The **ODBC** connection uses the InterSystems IRIS ODBC driver for enhanced perf
 
 1. Click the **"+ Add New Connection"** button in the sidebar
 2. Fill in the connection details form
-3. Choose between Native SDK or ODBC connection type
-4. Click **"Save Connection"**
+3. Click **"Save Connection"**
 
 #### Editing a Connection
 
@@ -321,11 +300,6 @@ The Export feature allows you to extract data from IRIS tables to various file f
 ### Extension Settings
 
 Access settings via the gear icon in the IRIS IO Utility sidebar.
-
-**Default Connection Type**
-
-- Choose between Native SDK and ODBC
-- Applies globally to new connections of any connection item (even if added previously)
 
 **ODBC Driver Selection**
 
