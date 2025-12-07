@@ -1,8 +1,13 @@
 {
+  "publisher": "pietrodileo",
   "name": "iris-io-utility",
   "displayName": "IRIS IO Utility",
   "description": "This is an utility extension to connect and interact with the tables of an InterSystems IRIS database",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pietrodileo/iris_io_utility.git"
+  },
   "engines": {
     "vscode": "^1.106.1"
   },
@@ -10,14 +15,14 @@
     "Other"
   ],
   "activationEvents": [],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "iris-io-container",
           "title": "IRIS IO Utility",
-          "icon": "src/resources/icon.svg"
+          "icon": "dist/resources/icon.png"
         }
       ]
     },
@@ -173,12 +178,15 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "node esbuild.js --production",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "watch:esbuild": "node esbuild.js --watch",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -187,6 +195,7 @@
     "@types/vscode": "^1.106.1",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.27.1",
     "eslint": "^9.39.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.3"

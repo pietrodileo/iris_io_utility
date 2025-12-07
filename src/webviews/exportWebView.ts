@@ -4,6 +4,7 @@ import { Connection } from "../models/baseConnection";
 import { ConnectionManager } from "../iris/connectionManager";
 import * as path from "path";
 import * as fs from "fs";
+import { PathHelper } from "../utils/pathHelper";
 const XLSX = require("xlsx");
 
 /**
@@ -24,23 +25,19 @@ export class ExportWebview extends BaseWebview {
   }
 
   protected getBodyContent(): string {
-    const htmlPath = path.join(
-      this.context.extensionPath,
-      "src",
+    const html = PathHelper.readWebviewFile(
+      this.context,
       "webviews",
       "export",
       "export.html"
     );
-    const cssPath = path.join(
-      this.context.extensionPath,
-      "src",
+
+    const css = PathHelper.readWebviewFile(
+      this.context,
       "webviews",
       "export",
       "export.css"
     );
-
-    const html = fs.readFileSync(htmlPath, "utf8");
-    const css = fs.readFileSync(cssPath, "utf8");
 
     // Replace placeholders with actual connection data
     let port = this.connection.superServerPort.toString();

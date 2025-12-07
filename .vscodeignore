@@ -1,6 +1,7 @@
 .vscode/**
 .vscode-test/**
 src/**
+out/**
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
@@ -9,3 +10,31 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+.dockerignore
+commands.txt
+docker-compose.yml
+Dockerfile
+entrypoint.sh
+iris.script
+storage/**
+examples/**
+esbuild.js
+
+# Exclude dev dependencies from node_modules
+node_modules/@types/**
+node_modules/@eslint/**
+node_modules/@vscode/test-**
+node_modules/typescript/**
+node_modules/eslint/**
+node_modules/esbuild/**
+
+# Exclude unnecessary files from included modules
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/example/**
+node_modules/**/examples/**
+node_modules/**/*.md
+node_modules/**/LICENSE*
+node_modules/**/CHANGELOG*
+node_modules/**/.github/**
+node_modules/**/docs/**

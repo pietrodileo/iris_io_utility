@@ -10,31 +10,47 @@ let webviewManager: WebviewManager;
 let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
-  // Create output channel for logging
-  outputChannel = vscode.window.createOutputChannel("IRIS IO Utility");
-  context.subscriptions.push(outputChannel);
+  try {
+    // Create output channel for logging
+    outputChannel = vscode.window.createOutputChannel("IRIS IO Utility");
+    context.subscriptions.push(outputChannel);
 
-  // Initialize connection manager
-  connectionManager = new ConnectionManager(context, outputChannel);
-  webviewManager = new WebviewManager(context, connectionManager, outputChannel);
+    // Initialize connection manager
+    connectionManager = new ConnectionManager(context, outputChannel);
+    webviewManager = new WebviewManager(
+      context,
+      connectionManager,
+      outputChannel
+    );
 
-  // Initialize connections provider
-  const connectionsProvider = new ConnectionsProvider(context);
-  vscode.window.registerTreeDataProvider("irisIOConnections",connectionsProvider);
+    // Initialize connections provider
+    const connectionsProvider = new ConnectionsProvider(context);
+    vscode.window.registerTreeDataProvider(
+      "irisIOConnections",
+      connectionsProvider
+    );
 
-  // Initialize favorites provider
-  const favoritesProvider = new FavoritesProvider(connectionsProvider);
-  vscode.window.registerTreeDataProvider("irisIOFavorites", favoritesProvider);
+    // Initialize favorites provider
+    const favoritesProvider = new FavoritesProvider(connectionsProvider);
+    vscode.window.registerTreeDataProvider(
+      "irisIOFavorites",
+      favoritesProvider
+    );
 
-  // Register all commands
-  const commandHandlers = new CommandHandlers(
-    context,
-    connectionsProvider,
-    connectionManager,
-    outputChannel,
-    webviewManager
-  );
-  commandHandlers.registerAll();
+    // Register all commands
+    const commandHandlers = new CommandHandlers(
+      context,
+      connectionsProvider,
+      connectionManager,
+      outputChannel,
+      webviewManager
+    );
+    commandHandlers.registerAll();
+    vscode.window.showInformationMessage("IRIS IO Utility is now active!");
+  } catch (error) {
+    vscode.window.showErrorMessage(`IRIS IO Utility failed to activate: ${error}`);
+    console.error("Activation error:", error);
+  }
 }
 
 export function deactivate() {

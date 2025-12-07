@@ -3,6 +3,7 @@ import { OdbcDriverChecker } from "../iris/models/connection/odbcDriverChecker";
 import * as path from "path";
 import * as fs from "fs";
 import { SettingsManager } from "./settingsManager";
+import { PathHelper } from "../utils/pathHelper";
 
 export class OdbcSettingsWebview {
   private static instance: OdbcSettingsWebview | undefined;
@@ -214,23 +215,19 @@ export class OdbcSettingsWebview {
   }
 
   private getBodyContent(): string {
-    const htmlPath = path.join(
-      this.context.extensionPath,
-      "src",
+    const html = PathHelper.readWebviewFile(
+      this.context,
       "webviews",
       "settings",
       "settings.html"
     );
-    const cssPath = path.join(
-      this.context.extensionPath,
-      "src",
+
+    const css = PathHelper.readWebviewFile(
+      this.context,
       "webviews",
       "settings",
       "settings.css"
     );
-
-    const html = fs.readFileSync(htmlPath, "utf8");
-    const css = fs.readFileSync(cssPath, "utf8");
 
     return `
       <style>${css}</style>
