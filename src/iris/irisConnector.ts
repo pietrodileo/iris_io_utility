@@ -216,7 +216,9 @@ export class IrisConnector extends IrisInference {
       return await this.sql.execute(sql, parameters);
     } catch (error: any) {
       this.log(`[IrisConnector] Execute failed: ${error.message}`);
-      throw error;
+      // throw error;
+      this.log("[IrisConnector] Execute failed for row: " + sql + " " + error.message);
+      return 0;
     }
   }
 
@@ -409,7 +411,7 @@ export class IrisConnector extends IrisInference {
   async exportTableToTxt(
     tableName: string,
     schema: string = "SQLUser",
-    delimiter: string = "\t",
+    delimiter: string = ",",
     limit?: number
   ): Promise<string> {
     this.log(`[IrisConnector] Exporting ${schema}.${tableName} to TXT...`);
@@ -642,7 +644,8 @@ export class IrisConnector extends IrisInference {
     columnIndexes?: Record<
       string,
       { index: boolean; type: string; name: string }
-    >
+    >,
+    delimiter?: string
   ): Promise<void> {
     this.log(`[IrisConnector] Importing to new table: ${schema}.${tableName}`);
 
@@ -655,7 +658,7 @@ export class IrisConnector extends IrisInference {
       }
 
       // 1. Analyze file to get columns
-      const analysis = await this.analyzeFile(filePath, fileFormat);
+      const analysis = await this.analyzeFile(filePath, fileFormat, delimiter);
 
       // 2. Build column definitions
       const columns: Record<string, string> = {};
@@ -696,7 +699,8 @@ export class IrisConnector extends IrisInference {
         tableName,
         schema,
         fileFormat,
-        analysis.columns
+        analysis.columns,
+        delimiter
       );
 
       this.log(`[IrisConnector] Import complete`);
@@ -714,7 +718,8 @@ export class IrisConnector extends IrisInference {
     tableName: string,
     schema: string,
     fileFormat: string,
-    dataAction: "append" | "replace"
+    dataAction: "append" | "replace",
+    delimiter?: string
   ): Promise<void> {
     this.log(
       `[IrisConnector] Importing to existing table: ${schema}.${tableName} (${dataAction})`
@@ -729,7 +734,7 @@ export class IrisConnector extends IrisInference {
 
       // 2. Get table structure
       const tableInfo = await this.describeTable(tableName, schema);
-      this.log(`[IrisConnector] Table structure: ${JSON.stringify(tableInfo)}`);
+      // this.log(`[IrisConnector] Table structure: ${JSON.stringify(tableInfo)}`);
       const columns = tableInfo.columns.map((c) => ({
         name: c.COLUMN_NAME,
         originalName: c.COLUMN_NAME,
@@ -743,7 +748,8 @@ export class IrisConnector extends IrisInference {
         tableName,
         schema,
         fileFormat,
-        columns
+        columns,
+        delimiter
       );
 
       this.log(`[IrisConnector] Import complete`);
@@ -761,7 +767,8 @@ export class IrisConnector extends IrisInference {
     tableName: string,
     schema: string,
     fileFormat: string,
-    columns: ColumnAnalysis[]
+    columns: ColumnAnalysis[],
+    delimiter?: string
   ): Promise<void> {
     try {
       let rows: Record<string, any>[] = [];
@@ -785,12 +792,12 @@ export class IrisConnector extends IrisInference {
       }
 
       // -----------------------------
-      // CSV — always comma
+      // CSV and TXT
       // -----------------------------
       else if (fileFormat === "csv" || fileFormat === "txt") {
         let file_delimiter = ",";
         if (fileFormat === "txt") {
-          file_delimiter = ","; // modify txt delimiter later...
+          file_delimiter = delimiter || ",";
         }
         
         const content = fs.readFileSync(filePath, "utf8");
@@ -803,7 +810,7 @@ export class IrisConnector extends IrisInference {
         });
 
         if (parsed.errors.length > 0) {
-          throw new Error("CSV parsing failed: " + parsed.errors[0].message);
+          throw new Error(`${fileFormat} parsing failed: ${parsed.errors[0].message}`);
         }
 
         rows = parsed.data.map((row: any) => {
@@ -838,7 +845,9 @@ export class IrisConnector extends IrisInference {
       // -----------------------------
       this.log(`[IrisConnector] Mapped ${rows.length} rows`);
 
-      const batchSize = 500;
+      // batch is 30% of total
+      const batchSize = Math.floor(rows.length * 0.3);
+      this.log(`[IrisConnector] Batch size: ${batchSize} rows`);
       let inserted = 0;
 
       for (let i = 0; i < rows.length; i += batchSize) {
@@ -846,7 +855,7 @@ export class IrisConnector extends IrisInference {
         const count = await this.insertMany(tableName, batch, schema);
 
         inserted += count;
-        this.log(`[IrisConnector] Inserted ${inserted}/${rows.length} rows`);
+        this.log(`[IrisConnector] Batch ${i / batchSize + 1} Inserted ${inserted}/${rows.length} rows`);
       }
 
       this.log(`[IrisConnector] Total rows inserted: ${inserted}`);

@@ -21,7 +21,8 @@ export abstract class IrisInference {
    */
   async analyzeFile(
     filePath: string,
-    fileFormat: string
+    fileFormat: string,
+    file_delimiter: string = ","
   ): Promise<{ columns: ColumnAnalysis[] }> {
     this.log(`[IrisConnector] Analyzing file: ${filePath} (${fileFormat})`);
 
@@ -29,7 +30,7 @@ export abstract class IrisInference {
 
     try {
       if (fileFormat === "csv" || fileFormat === "txt") {
-        columns = await this.analyzeCsvFile(filePath);
+        columns = await this.analyzeCsvFile(filePath, file_delimiter);
       } else if (fileFormat === "json") {
         columns = await this.analyzeJsonFile(filePath);
       } else if (fileFormat === "xlsx" || fileFormat === "xls") {
@@ -51,13 +52,13 @@ export abstract class IrisInference {
   /**
    * Analyze a CSV file and infer column types
   */
-  async analyzeCsvFile(filePath: string): Promise<ColumnAnalysis[]> {
+  async analyzeCsvFile(filePath: string, file_delimiter: string): Promise<ColumnAnalysis[]> {
     try {
       const content = fs.readFileSync(filePath, "utf8");
 
       const parsed = Papa.parse(content, {
         header: true,
-        delimiter: ",",     // FIXED — no autodetection
+        delimiter: file_delimiter,
         skipEmptyLines: true,
         dynamicTyping: false
       });

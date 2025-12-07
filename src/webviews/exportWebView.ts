@@ -92,6 +92,31 @@ export class ExportWebview extends BaseWebview {
         sendMessage('browse-folder', null);
       });
 
+      // Show/hide delimiter options based on format selection
+      document.getElementById('format').addEventListener('change', (e) => {
+        const format = e.target.value;
+        const delimiterGroup = document.getElementById('txt-delimiter-group');
+        const delimiterCustomInput = document.getElementById('txt-delimiter-custom');
+        
+        if (format === 'txt') {
+          delimiterGroup.style.display = 'block';
+        } else {
+          delimiterGroup.style.display = 'none';
+          delimiterCustomInput.style.display = 'none';
+        }
+      });
+
+      // Show custom delimiter input when "custom" is selected
+      document.getElementById('txt-delimiter').addEventListener('change', (e) => {
+        const customInput = document.getElementById('txt-delimiter-custom');
+        if (e.target.value === 'custom') {
+          customInput.style.display = 'block';
+          customInput.focus();
+        } else {
+          customInput.style.display = 'none';
+        }
+      });
+
       // Export button
       document.getElementById('export-btn').addEventListener('click', () => {
         const schema = document.getElementById('schema').value;
@@ -110,7 +135,18 @@ export class ExportWebview extends BaseWebview {
           return;
         }
 
-        sendMessage('export', { schema, table, format, fileName, folderPath });
+        // Support for custom txt delimiter
+        let delimiter = ','; // default
+        if (format === 'txt') {
+          const delimiterSelect = document.getElementById('txt-delimiter').value;
+          if (delimiterSelect === 'custom') {
+            delimiter = document.getElementById('txt-delimiter-custom').value || ',';
+          } else {
+            delimiter = delimiterSelect;
+          }
+        }
+
+        sendMessage('export', { schema, table, format, fileName, folderPath, delimiter });
       });
 
       // Show workspace banner initially
@@ -317,9 +353,11 @@ export class ExportWebview extends BaseWebview {
           );
           break;
         case "txt":
+          const delimiter = data.delimiter;
           exportData = await this.connector.exportTableToTxt(
             data.table,
-            data.schema
+            data.schema,
+            delimiter
           );
           break;
         case "json":
@@ -405,4 +443,5 @@ export interface ExportData {
   format: "csv" | "json" | "txt" | "xlsx";
   fileName: string;
   folderPath: string;
+  delimiter?: string;
 }
