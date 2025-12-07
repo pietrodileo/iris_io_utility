@@ -49,18 +49,33 @@
       <option value="csv">CSV</option>
       <option value="txt">TXT</option>
       <option value="json">JSON</option>
-      <!-- <option value="xlsx">Excel (XLSX)</option> -->
+      <option value="xlsx">XLSX</option>
     </select>
     <small class="field-hint">
       Choose the output file format
     </small>
   </div>
 
-  <div class="form-group">
-    <label for="file-name">File Name *</label>
-    <input type="text" id="file-name" placeholder="e.g., my_export" required />
+  <!-- TXT Delimiter Options (shown only when TXT is selected) -->
+  <div class="form-group" id="txt-delimiter-group" style="display: none;">
+    <label for="txt-delimiter">TXT Delimiter</label>
+    <select id="txt-delimiter">
+      <option value=",">Comma (,)</option>
+      <option value=";">Semicolon (;)</option>
+      <option value="|">Pipe (|)</option>
+      <option value="custom">Custom...</option>
+    </select>
+    <input type="text" id="txt-delimiter-custom" placeholder="Enter custom delimiter (e.g., ::)" style="display: none; margin-top: 8px;" maxlength="5" />
     <small class="field-hint">
-      If left empty, schema and table name will be used.
+      Choose the delimiter character(s) for TXT format
+    </small>
+  </div>
+
+  <div class="form-group">
+    <label for="file-name">File Name</label>
+    <input type="text" id="file-name" placeholder="Leave empty for auto-generated name" />
+    <small class="field-hint">
+      If left empty, format will be: schema_table_timestamp
     </small>
   </div>
 
@@ -76,9 +91,6 @@
   </div>
 
   <div id="workspace-banner" class="banner" style="display: none;">
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 3.5v4.77l2.68 1.55-.75 1.3L7 10V4.5h1.75z"/>
-    </svg>
     <span>Export will be saved to workspace folder</span>
   </div>
 

@@ -32,7 +32,7 @@ export class IRISql implements ISqlClient {
 
   async query(sql: string, parameters: any[] = []): Promise<any[]> {
     try {
-      this.log(`[IRISql] Executing query: ${sql.substring(0, 100)}...`);
+      // this.log(`[IRISql] Executing query: ${sql.substring(0, 100)}...`);
 
       const statement = new SQLStatement(this.iris, sql, this.outputChannel);
       const result = statement.execute(...parameters);
@@ -51,7 +51,7 @@ export class IRISql implements ISqlClient {
 
   async execute(sql: string, parameters: any[] = []): Promise<number> {
     try {
-      this.log(`[IRISql] Executing statement: ${sql.substring(0, 100)}...`);
+      // this.log(`[IRISql] Executing statement: ${sql.substring(0, 100)}...`);
 
       const statement = new SQLStatement(this.iris, sql, this.outputChannel);
       const result = statement.execute(...parameters);
@@ -68,7 +68,7 @@ export class IRISql implements ISqlClient {
         return 1;
       }
 
-      this.log(`[IRISql] Statement executed successfully`);
+      // this.log(`[IRISql] Statement executed successfully`);
       return result.rows.length || 0;
     } catch (error: any) {
       this.log(`[IRISql] Execute failed: ${error.message}`);
@@ -112,7 +112,7 @@ export class OdbcSqlClient implements ISqlClient {
 
   async query(sql: string, parameters: any[] = []): Promise<any[]> {
     try {
-      this.log(`[ODBC] Executing query: ${sql.substring(0, 100)}...`);
+      // this.log(`[ODBC] Executing query: ${sql.substring(0, 100)}...`);
       const startTime = Date.now();
 
       let result: any[];
@@ -138,7 +138,7 @@ export class OdbcSqlClient implements ISqlClient {
 
   async execute(sql: string, parameters: any[] = []): Promise<number> {
     try {
-      this.log(`[ODBC] Executing statement: ${sql}`);
+      // this.log(`[ODBC] Executing statement: ${sql}`);
       const startTime = Date.now();
 
       let result: any;
@@ -152,9 +152,7 @@ export class OdbcSqlClient implements ISqlClient {
 
       // ODBC returns affected rows in different ways depending on the operation
       const affected = result.count || result.length || 0;
-      this.log(
-        `[ODBC] Statement executed in ${elapsed}ms, affected rows: ${affected}`
-      );
+      // this.log(`[ODBC] Statement executed in ${elapsed}ms, affected rows: ${affected}`);
 
       return affected;
     } catch (error: any) {

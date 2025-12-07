@@ -4,6 +4,8 @@ import { Connection } from "../models/baseConnection";
 import { ConnectionManager } from "../iris/connectionManager";
 import * as path from "path";
 import * as fs from "fs";
+import { PathHelper } from "../utils/pathHelper";
+const XLSX = require("xlsx");
 
 /**
  * Webview for exporting data from IRIS
@@ -23,23 +25,19 @@ export class ExportWebview extends BaseWebview {
   }
 
   protected getBodyContent(): string {
-    const htmlPath = path.join(
-      this.context.extensionPath,
-      "src",
+    const html = PathHelper.readWebviewFile(
+      this.context,
       "webviews",
       "export",
       "export.html"
     );
-    const cssPath = path.join(
-      this.context.extensionPath,
-      "src",
+
+    const css = PathHelper.readWebviewFile(
+      this.context,
       "webviews",
       "export",
       "export.css"
     );
-
-    const html = fs.readFileSync(htmlPath, "utf8");
-    const css = fs.readFileSync(cssPath, "utf8");
 
     // Replace placeholders with actual connection data
     let port = this.connection.superServerPort.toString();
@@ -91,6 +89,31 @@ export class ExportWebview extends BaseWebview {
         sendMessage('browse-folder', null);
       });
 
+      // Show/hide delimiter options based on format selection
+      document.getElementById('format').addEventListener('change', (e) => {
+        const format = e.target.value;
+        const delimiterGroup = document.getElementById('txt-delimiter-group');
+        const delimiterCustomInput = document.getElementById('txt-delimiter-custom');
+        
+        if (format === 'txt') {
+          delimiterGroup.style.display = 'block';
+        } else {
+          delimiterGroup.style.display = 'none';
+          delimiterCustomInput.style.display = 'none';
+        }
+      });
+
+      // Show custom delimiter input when "custom" is selected
+      document.getElementById('txt-delimiter').addEventListener('change', (e) => {
+        const customInput = document.getElementById('txt-delimiter-custom');
+        if (e.target.value === 'custom') {
+          customInput.style.display = 'block';
+          customInput.focus();
+        } else {
+          customInput.style.display = 'none';
+        }
+      });
+
       // Export button
       document.getElementById('export-btn').addEventListener('click', () => {
         const schema = document.getElementById('schema').value;
@@ -109,7 +132,18 @@ export class ExportWebview extends BaseWebview {
           return;
         }
 
-        sendMessage('export', { schema, table, format, fileName, folderPath });
+        // Support for custom txt delimiter
+        let delimiter = ','; // default
+        if (format === 'txt') {
+          const delimiterSelect = document.getElementById('txt-delimiter').value;
+          if (delimiterSelect === 'custom') {
+            delimiter = document.getElementById('txt-delimiter-custom').value || ',';
+          } else {
+            delimiter = delimiterSelect;
+          }
+        }
+
+        sendMessage('export', { schema, table, format, fileName, folderPath, delimiter });
       });
 
       // Show workspace banner initially
@@ -316,9 +350,11 @@ export class ExportWebview extends BaseWebview {
           );
           break;
         case "txt":
+          const delimiter = data.delimiter;
           exportData = await this.connector.exportTableToTxt(
             data.table,
-            data.schema
+            data.schema,
+            delimiter
           );
           break;
         case "json":
@@ -326,20 +362,56 @@ export class ExportWebview extends BaseWebview {
             data.table,
             data.schema
           );
-          exportData = JSON.stringify(jsonData, null, 2);
+          // Custom replacer to handle BigInt serialization
+          exportData = JSON.stringify(
+            jsonData,
+            (key, value) => {
+              if (typeof value === "bigint") {
+                return value.toString();
+              }
+              return value;
+            },
+            2
+          );
           break;
-        // case "xlsx": To do in the future
-        //   // For Excel, we would need a library like 'xlsx' or 'exceljs'
-        //   // For now, export as CSV with .xlsx extension (placeholder)
-        //   this.postMessage(
-        //     "error",
-        //     "XLSX export requires additional library. Using CSV format instead."
-        //   );
-        //   exportData = await this.connector.exportTableToCsv(
-        //     data.table,
-        //     data.schema
-        //   );
-        //   break;
+        case "xlsx":
+          const xlsxData = await this.connector.exportTableToJson(
+            data.table,
+            data.schema
+          );
+
+          // Convert BigInt values to strings for Excel
+          const sanitizedData = xlsxData.map((row) => {
+            const newRow: any = {};
+            for (const [key, value] of Object.entries(row)) {
+              if (typeof value === "bigint") {
+                newRow[key] = value.toString();
+              } else if (value === null || value === undefined) {
+                newRow[key] = "";
+              } else {
+                newRow[key] = value;
+              }
+            }
+            return newRow;
+          });
+
+          // Create workbook and worksheet
+          const workbook = XLSX.utils.book_new();
+          const worksheet = XLSX.utils.json_to_sheet(sanitizedData);
+
+          // Add worksheet to workbook
+          XLSX.utils.book_append_sheet(
+            workbook,
+            worksheet,
+            data.table.substring(0, 31)
+          ); // Sheet name max 31 chars
+
+          // Write to buffer
+          exportData = XLSX.write(workbook, {
+            type: "buffer",
+            bookType: "xlsx",
+          });
+          break;
         default:
           throw new Error(`Unsupported format: ${data.format}`);
       }
@@ -365,7 +437,8 @@ export class ExportWebview extends BaseWebview {
 export interface ExportData {
   schema: string;
   table: string;
-  format: "csv" | "json" | "txt"; // | "xlsx";
+  format: "csv" | "json" | "txt" | "xlsx";
   fileName: string;
   folderPath: string;
+  delimiter?: string;
 }
