@@ -2,7 +2,7 @@
 
 A powerful Visual Studio Code extension for seamless data import/export operations with InterSystems IRIS databases. This extension provides an intuitive interface to connect, manage, and transfer data between various file formats and IRIS namespaces.
 
-> **Contest Submission**: This project was developed as a submission for the InterSystems "Bringing Ideas to Reality" Contest of December 2025.
+> **Contest Submission**: This project was developed as a submission for the InterSystems "Bringing Ideas to Reality" Contest of December 2025. The extension provides an implementation for the following idea: https://ideas.intersystems.com/ideas/DPI-I-667
 
 ## 📋 Table of Contents
 
