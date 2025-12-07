@@ -24,7 +24,21 @@
         <button type="button" id="browse-new-file-btn">Browse...</button>
       </div>
       <small class="field-hint">
-        Supported formats: CSV, JSON, TXT, Excel (XLSX, XLS)
+        Supported formats: CSV, JSON, TXT, XLSX
+      </small>
+    </div>
+
+    <div class="form-group" id="txt-delimiter-group-new" style="display: none;">
+      <label for="txt-delimiter-new">TXT Delimiter (for TXT files)</label>
+      <select id="txt-delimiter-new">
+        <option value=",">Comma (,)</option>
+        <option value=";">Semicolon (;)</option>
+        <option value="|">Pipe (|)</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <input type="text" id="txt-delimiter-custom-new" placeholder="Enter custom delimiter (e.g., ::)" style="display: none; margin-top: 8px;" maxlength="5" />
+      <small class="field-hint">
+        Specify the delimiter used in your TXT file
       </small>
     </div>
 
@@ -45,7 +59,7 @@
 
       <!-- Schema Text Input (hidden by default) -->
       <div id="new-schema-text-wrapper" style="display: none;">
-        <input type="text" id="new-schema-text-input" placeholder="Enter new schema name..." />
+        <input type="text" id="new-schema-text-input" placeholder="Enter new schema name... (ex. MyNewSchema_subSchema)" />
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center;">
@@ -69,7 +83,7 @@
 
     <div class="button-group">
       <button type="button" id="create-import-btn">Create Table & Import</button>
-      <button type="button" id="cancel-btn" class="secondary">Cancel</button>
+      <button type="button" id="cancel-btn-new" class="secondary">Cancel</button>
     </div>
   </div>
 
@@ -86,7 +100,21 @@
         <button type="button" id="browse-existing-file-btn">Browse...</button>
       </div>
       <small class="field-hint">
-        Supported formats: CSV, JSON, TXT, Excel (XLSX, XLS)
+        Supported formats: CSV, JSON, TXT, XLSX
+      </small>
+    </div>
+
+    <div class="form-group" id="txt-delimiter-group-existing" style="display: none;">
+      <label for="txt-delimiter-existing">TXT Delimiter (for TXT files)</label>
+      <select id="txt-delimiter-existing">
+        <option value=",">Comma (,)</option>
+        <option value=";">Semicolon (;)</option>
+        <option value="|">Pipe (|)</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <input type="text" id="txt-delimiter-custom-existing" placeholder="Enter custom delimiter (e.g., ::)" style="display: none; margin-top: 8px;" maxlength="5" />
+      <small class="field-hint">
+        Specify the delimiter used in your TXT file
       </small>
     </div>
 
@@ -133,7 +161,7 @@
 
     <div class="button-group">
       <button type="button" id="load-existing-btn">Import Data</button>
-      <button type="button" id="cancel-btn" class="secondary">Cancel</button>
+      <button type="button" id="cancel-btn-existing" class="secondary">Cancel</button>
     </div>
   </div>
 
