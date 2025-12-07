@@ -16,7 +16,6 @@ A powerful Visual Studio Code extension for seamless data import/export operatio
   - [Importing Data](#importing-data)
   - [Exporting Data](#exporting-data)
 - [Configuration](#configuration)
-- [Supported File Formats](#supported-file-formats)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
