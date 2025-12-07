@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-const irisnative = require("@intersystems/intersystems-iris-native");
 import type { IrisConnectionConfig, ConnectionType } from "./models/connection/irisConnectionConfig";
 import {TableDescription,SchemaTable,} from "./models/connection/irisTables";
 import { ISqlClient, createSqlClient } from "./irisSQL";
@@ -10,6 +9,7 @@ const fs = require("fs");
 const XLSX = require("xlsx");
 import Papa from "papaparse";
 import { delimiter } from "path";
+// const irisnative = require("@intersystems/intersystems-iris-native");
 
 /**
  * Class that represents a connection to an IRIS instance and provides methods for executing queries.
@@ -67,9 +67,11 @@ export class IrisConnector extends IrisInference {
         `[IrisConnector] Creating ${this.connectionType.toUpperCase()} connection...`
       );
 
-      if (this.connectionType === "native") {
-        await this.connectNative();
-      } else if (this.connectionType === "odbc") {
+      // if (this.connectionType === "native") {
+      //   await this.connectNative();
+      // } else 
+        
+      if (this.connectionType === "odbc") { // Make odbc default
         await this.connectOdbc();
       } else {
         throw new Error(`Unknown connection type: ${this.connectionType}`);
@@ -82,25 +84,25 @@ export class IrisConnector extends IrisInference {
     }
   }
 
-  private async connectNative(): Promise<void> {
-    this.log(
-      `[IrisConnector] Native connecting to ${this.host}:${this.superServerPort}/${this.namespace}...`
-    );
-    const connectionInfo = {
-      host: this.host,
-      port: this.superServerPort,
-      ns: this.namespace,
-      user: this.username,
-      pwd: this.password,
-    };
+  // private async connectNative(): Promise<void> {
+  //   this.log(
+  //     `[IrisConnector] Native connecting to ${this.host}:${this.superServerPort}/${this.namespace}...`
+  //   );
+  //   const connectionInfo = {
+  //     host: this.host,
+  //     port: this.superServerPort,
+  //     ns: this.namespace,
+  //     user: this.username,
+  //     pwd: this.password,
+  //   };
 
-    this.connection = irisnative.createConnection(connectionInfo);
-    this.log(`[IrisConnector] Creating IRIS`);
-    this.iris = this.connection.createIris();
-    // Create Native SQL client
-    this.sql = createSqlClient("native", this.connection, this.outputChannel);
-    this.log("[IrisConnector] Native SDK initialized");
-  }
+  //   this.connection = irisnative.createConnection(connectionInfo);
+  //   this.log(`[IrisConnector] Creating IRIS`);
+  //   this.iris = this.connection.createIris();
+  //   // Create Native SQL client
+  //   this.sql = createSqlClient("native", this.connection, this.outputChannel);
+  //   this.log("[IrisConnector] Native SDK initialized");
+  // }
 
   private async connectOdbc(): Promise<void> {
     // Build ODBC connection string

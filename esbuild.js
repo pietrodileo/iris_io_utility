@@ -37,8 +37,7 @@ async function main() {
     outfile: "dist/extension.js",
     external: [
       "vscode",
-      "odbc",  // Native module - must be external
-      "@intersystems/intersystems-iris-native"  // Native module
+      "odbc"
     ],
     logLevel: "warning",
     plugins: [
