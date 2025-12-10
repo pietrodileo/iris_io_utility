@@ -69,9 +69,10 @@ export class IrisConnector extends IrisInference {
 
       // if (this.connectionType === "native") {
       //   await this.connectNative();
-      // } else 
-        
-      if (this.connectionType === "odbc") { // Make odbc default
+      // } else
+
+      if (this.connectionType === "odbc") {
+        // Make odbc default
         await this.connectOdbc();
       } else {
         throw new Error(`Unknown connection type: ${this.connectionType}`);
@@ -219,7 +220,9 @@ export class IrisConnector extends IrisInference {
     } catch (error: any) {
       this.log(`[IrisConnector] Execute failed: ${error.message}`);
       // throw error;
-      this.log("[IrisConnector] Execute failed for row: " + sql + " " + error.message);
+      this.log(
+        "[IrisConnector] Execute failed for row: " + sql + " " + error.message
+      );
       return 0;
     }
   }
@@ -469,7 +472,7 @@ export class IrisConnector extends IrisInference {
   validateTableName(tableName: string, schema?: string): string {
     if (tableName.includes(".") || tableName.includes("_")) {
       throw new Error(
-        `Invalid table_name '${tableName}'. ` +
+        `[IrisConnector] Invalid table_name '${tableName}'. ` +
           "Do not include schema or underscores in table_name. " +
           "Example: table_schema='EnsLib_Background_Workflow', table_name='ExportResponse'."
       );
@@ -477,7 +480,7 @@ export class IrisConnector extends IrisInference {
 
     if (schema && schema.includes(".")) {
       throw new Error(
-        `Invalid table_schema '${schema}'. ` +
+        `[IrisConnector] Invalid table_schema '${schema}'. ` +
           "Do not include periods in table_schema."
       );
     }
@@ -497,14 +500,14 @@ export class IrisConnector extends IrisInference {
 
     if (tableName.includes(".") || tableName.includes("_")) {
       throw new Error(
-        `Invalid table_name '${fullName}'. ` +
+        `[IrisConnector] Invalid table_name '${fullName}'. ` +
           "Do not include schema or underscores in table_name."
       );
     }
 
     if (schema.includes(".")) {
       throw new Error(
-        `Invalid table_schema '${schema}'. ` +
+        `[IrisConnector] Invalid table_schema '${schema}'. ` +
           "Do not include periods in table_schema."
       );
     }
@@ -527,9 +530,9 @@ export class IrisConnector extends IrisInference {
 
     try {
       await this.execute(sql, Object.values(values));
-      this.log(`Inserted row into ${fullName}`);
+      this.log(`[IrisConnector] Inserted row into ${fullName}`);
     } catch (error: any) {
-      console.error(`Failed to insert into ${fullName}: ${error.message}`);
+      console.error(`[IrisConnector] Failed to insert into ${fullName}: ${error.message}`);
       throw error;
     }
   }
@@ -541,7 +544,6 @@ export class IrisConnector extends IrisInference {
   ): Promise<number> {
     const fullTable = this.validateTableName(tableName, schema);
     try {
-      // this.log(`[IrisConnector] ROWS ${rows}`);
       this.log(`[IrisConnector] Inserting ${rows.length} row(s) into ${fullTable}`);
       if (rows.length === 0) {
         throw new Error("No rows to insert");
@@ -562,7 +564,7 @@ export class IrisConnector extends IrisInference {
       this.log(`[IrisConnector] Inserted ${count} row(s) into ${fullTable}`);
       return count;
     } catch (error: any) {
-      console.error(`Failed to insert into ${fullTable}: ${error.message}`);
+      console.error(`[IrisConnector] Failed to insert into ${fullTable}: ${error.message}`);
       throw error;
     }
   }
@@ -572,20 +574,26 @@ export class IrisConnector extends IrisInference {
     tableName: string,
     columns: Record<string, string>,
     constraints: string[] = [],
-    schema: string = "SQLUser"
+    schema: string = "SQLUser",
+    primaryKey?: string
   ): Promise<void> {
     const fullTableName = this.validateTableName(tableName, schema);
     try {
       const colDefs = Object.entries(columns).map(
         ([col, type]) => `${col} ${type}`
       );
+      // Add primary key constraint if specified
+      if (primaryKey) { 
+        constraints.push(`PRIMARY KEY (${primaryKey})`);
+      }
+
       const allDefs = [...colDefs, ...constraints];
       const sql = `CREATE TABLE ${fullTableName} ( ${allDefs.join(", ")} )`;
-
+      this.log(`[IrisConnector] sql ${sql}`);
       await this.execute(sql);
-      this.log(`Table ${fullTableName} created successfully`);
+      this.log(`[IrisConnector] Table ${fullTableName} created successfully`);
     } catch (error: any) {
-      console.error(`Error creating table ${fullTableName}: ${error.message}`);
+      console.error(`[IrisConnector] Error creating table ${fullTableName}: ${error.message}`);
       throw error;
     }
   }
@@ -600,9 +608,9 @@ export class IrisConnector extends IrisInference {
 
     try {
       await this.execute(sql);
-      this.log(`Table ${fullName} dropped successfully`);
+      this.log(`[IrisConnector] Table ${fullName} dropped successfully`);
     } catch (error: any) {
-      console.error(`Error dropping table ${fullName}: ${error.message}`);
+      console.error(`[IrisConnector] Error dropping table ${fullName}: ${error.message}`);
       throw error;
     }
   }
@@ -612,23 +620,28 @@ export class IrisConnector extends IrisInference {
     columnName: string,
     indexName: string,
     indexType: string = "INDEX",
-    schema: string = "SQLUser"
+    schema: string = "SQLUser",
+    isUnique: boolean = false
   ): Promise<void> {
     const fullName = this.validateTableName(tableName, schema);
 
-    let sql = "";
-    if (indexType && indexType !== "INDEX") {
-      sql = `CREATE ${indexType} INDEX ${indexName} ON ${fullName}(${columnName})`;
-    } else {
-      sql = `CREATE INDEX ${indexName} ON ${fullName}(${columnName})`;
+    let sql = "CREATE ";
+    if (isUnique === true) {
+      sql += "UNIQUE ";
     }
-    this.log(`Query to create index: ${sql}`);
+
+    if (indexType && indexType !== "INDEX") {
+      sql += ` ${indexType} INDEX ${indexName} ON ${fullName}(${columnName})`;
+    } else {
+      sql += ` INDEX ${indexName} ON ${fullName}(${columnName})`;
+    }
+    this.log(`[IrisConnector] Query to create index: ${sql}`);
 
     try {
       await this.execute(sql);
-      this.log(`Index ${indexName} created on ${fullName}.${columnName}`);
+      this.log(`[IrisConnector] Index ${indexName} created on ${fullName}.${columnName}`);
     } catch (err: any) {
-      this.log(`Failed to create index ${indexName}: ${err.message}`);
+      this.log(`[IrisConnector] Failed to create index ${indexName}: ${err.message}`);
       throw err;
     }
   }
@@ -645,9 +658,15 @@ export class IrisConnector extends IrisInference {
     columnTypes?: Record<string, string>,
     columnIndexes?: Record<
       string,
-      { index: boolean; type: string; name: string }
+      {
+        unique: boolean;
+        index: boolean;
+        type: string;
+        name: string;
+      }
     >,
-    delimiter?: string
+    delimiter?: string,
+    primaryKey?: string
   ): Promise<void> {
     this.log(`[IrisConnector] Importing to new table: ${schema}.${tableName}`);
 
@@ -669,7 +688,7 @@ export class IrisConnector extends IrisInference {
       });
 
       // 3. Create table
-      await this.createTable(tableName, columns, [], schema);
+      await this.createTable(tableName, columns, [], schema, primaryKey);
       this.log(`[IrisConnector] Table created: ${schema}.${tableName}`);
 
       // 4. Create indexes (NEW)
@@ -681,15 +700,20 @@ export class IrisConnector extends IrisInference {
           }
           const indexName = indexInfo.name || `${tableName}_${colName}_idx`; // default index name
           const indexType = indexInfo.type || "INDEX"; // default index type
+          const isUnique = indexInfo.unique === true;
+
           this.log(
-            `[IrisConnector] Creating index ${indexName} (${indexType})...`
+            `[IrisConnector] Creating ${
+              isUnique ? "UNIQUE " : ""
+            }index ${indexName}... `
           );
           await this.createIndex(
             tableName,
             colName,
             indexName,
             indexType,
-            schema
+            schema,
+            isUnique
           );
           this.log(`[IrisConnector] Created index ${indexName} (${indexType})`);
         }
@@ -774,7 +798,9 @@ export class IrisConnector extends IrisInference {
   ): Promise<void> {
     try {
       let rows: Record<string, any>[] = [];
-      this.log(`[IrisConnector] Importing data from ${filePath} with format ${fileFormat}`);
+      this.log(
+        `[IrisConnector] Importing data from ${filePath} with format ${fileFormat}`
+      );
 
       // -----------------------------
       // JSON
@@ -801,7 +827,7 @@ export class IrisConnector extends IrisInference {
         if (fileFormat === "txt") {
           file_delimiter = delimiter || ",";
         }
-        
+
         const content = fs.readFileSync(filePath, "utf8");
 
         const parsed = Papa.parse(content, {
@@ -812,7 +838,9 @@ export class IrisConnector extends IrisInference {
         });
 
         if (parsed.errors.length > 0) {
-          throw new Error(`${fileFormat} parsing failed: ${parsed.errors[0].message}`);
+          throw new Error(
+            `${fileFormat} parsing failed: ${parsed.errors[0].message}`
+          );
         }
 
         rows = parsed.data.map((row: any) => {
@@ -857,7 +885,11 @@ export class IrisConnector extends IrisInference {
         const count = await this.insertMany(tableName, batch, schema);
 
         inserted += count;
-        this.log(`[IrisConnector] Batch ${i / batchSize + 1} Inserted ${inserted}/${rows.length} rows`);
+        this.log(
+          `[IrisConnector] Batch ${i / batchSize + 1} Inserted ${inserted}/${
+            rows.length
+          } rows`
+        );
       }
 
       this.log(`[IrisConnector] Total rows inserted: ${inserted}`);

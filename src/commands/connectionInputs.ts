@@ -57,8 +57,8 @@ export class ConnectionInputs {
 
     const superServerPortString = await vscode.window.showInputBox({
       prompt: "Enter Superserver port",
-      placeHolder: "52773",
-      value: existingConnection?.superServerPort?.toString() || "52773",
+      placeHolder: "1972",
+      value: existingConnection?.superServerPort?.toString() || "1972",
       ignoreFocusOut: true,
       validateInput: (value) => {
         if (!value || value.trim().length === 0) {
@@ -78,8 +78,8 @@ export class ConnectionInputs {
 
     const webServerPortString = await vscode.window.showInputBox({
       prompt: "Enter Web Server port",
-      placeHolder: "1972",
-      value: existingConnection?.webServerPort?.toString() || "1972",
+      placeHolder: "52773",
+      value: existingConnection?.webServerPort?.toString() || "52773",
       ignoreFocusOut: true,
       validateInput: (value) => {
         if (!value || value.trim().length === 0) {

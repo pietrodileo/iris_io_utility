@@ -345,20 +345,26 @@ export class ImportWebview extends BaseWebview {
       });
 
       let columnIndexes = {};
+      let primaryKey = null;
       const indexChecks = document.querySelectorAll('.index-checkbox');
 
       indexChecks.forEach(chk => {
         const col = chk.dataset.colname;
-        if (chk.checked) {
-          const indexType = document.querySelector(\`.index-type-select[data-colname="\${col}"]\`).value;
-          const indexName = document.querySelector(\`.index-name-input[data-colname="\${col}"]\`).value.trim();
-
-          columnIndexes[col] = {
-            index: true,
-            type: indexType,
-            name: indexName || \`idx_\${tableName}_\${col}\` // auto-generate index name if empty
-          };
+        if (!chk.checked) return;
+        const indexType = document.querySelector(\`.index-type-select[data-colname="\${col}"]\`).value;
+        const indexName = document.querySelector(\`.index-name-input[data-colname="\${col}"]\`).value.trim();
+        const unique = document.querySelector(\`.unique-checkbox[data-colname="\${col}"]\`).checked;
+        const isPk = document.querySelector(\`.pk-checkbox[data-colname="\${col}"]\`).checked;
+        if (isPk) {
+          primaryKey = col;
         }
+        
+        columnIndexes[col] = {
+          index: true,
+          type: indexType,
+          name: indexName || \`idx_\${tableName}_\${col}\`,
+          unique
+        };
       });
 
       // Get delimiter for TXT files
@@ -375,7 +381,8 @@ export class ImportWebview extends BaseWebview {
           fileFormat: fileExt,
           columnTypes,
           columnIndexes,
-          delimiter
+          delimiter,
+          primaryKey
         }
       });
     });
@@ -486,11 +493,25 @@ export class ImportWebview extends BaseWebview {
                       </select>
                       <span class="column-sample" title="Sample: \${c.sampleValue}">Sample: \${c.sampleValue?.substring(0, 30) || 'NULL'}</span>
 
-                      <!-- Index checkbox -->
-                      <label class="index-label">
-                          <input type="checkbox" class="index-checkbox" data-colname="\${c.name}">
-                          Index
-                      </label>
+                      <div class="checkbox-group">
+                          <!-- Index checkbox -->
+                          <label class="index-label">
+                              <input type="checkbox" class="index-checkbox" data-colname="\${c.name}">
+                              Index
+                          </label>
+
+                          <!-- Unique checkbox -->
+                          <label class="unique-label">
+                              <input type="checkbox" class="unique-checkbox" data-colname="\${c.name}" disabled>
+                              Unique
+                          </label>
+
+                          <!-- Primary key checkbox -->
+                          <label class="pk-label">
+                              <input type="checkbox" class="pk-checkbox" data-colname="\${c.name}" disabled>
+                              PK
+                          </label>
+                      </div>
 
                       <!-- Index type -->
                       <select class="index-type-select" data-colname="\${c.name}" disabled>
@@ -528,6 +549,22 @@ export class ImportWebview extends BaseWebview {
 
     // ---------------- Handle index selection ----------------
     document.getElementById('column-types-panel').addEventListener('change', (event) => {
+        if (event.target.classList.contains('pk-checkbox')) {
+            const selectedPk = event.target;
+
+            // If the user unchecks, no need to enforce exclusivity
+            if (!selectedPk.checked) return;
+
+            // Disable all other PK checkboxes
+            document.querySelectorAll('.pk-checkbox').forEach(pk => {
+                if (pk !== selectedPk) {
+                    pk.checked = false;
+                }
+            });
+        }
+    });
+
+    document.getElementById('column-types-panel').addEventListener('change', (event) => {
       // Check if the changed element is an index-checkbox
       if (event.target.classList.contains('index-checkbox')) {
         const checkbox = event.target;
@@ -535,13 +572,20 @@ export class ImportWebview extends BaseWebview {
 
         const typeSel = document.querySelector(\`.index-type-select[data-colname="\${col}"]\`);
         const nameInp = document.querySelector(\`.index-name-input[data-colname="\${col}"]\`);
+        const uniqueChk = document.querySelector(\`.unique-checkbox[data-colname="\${col}"]\`);
+        const pkChk = document.querySelector(\`.pk-checkbox[data-colname="\${col}"]\`);
 
-        // Enable or disable the related inputs based on the checkbox state
-        if (typeSel) {
-          typeSel.disabled = !checkbox.checked;
-        }
-        if (nameInp) {
-          nameInp.disabled = !checkbox.checked;
+        const enabled = checkbox.checked;
+
+        typeSel.disabled = !enabled;
+        nameInp.disabled = !enabled;
+        uniqueChk.disabled = !enabled;
+        pkChk.disabled = !enabled;
+
+        // If index unchecked → reset unique & pk
+        if (!enabled) {
+            uniqueChk.checked = false;
+            pkChk.checked = false;
         }
       }
     });
@@ -775,7 +819,8 @@ export class ImportWebview extends BaseWebview {
           data.fileFormat,
           data.columnTypes,
           data.columnIndexes,
-          data.delimiter
+          data.delimiter,
+          data.primaryKey
         );
       } else {
         // Import into existing table
@@ -808,6 +853,10 @@ export interface ImportData {
   tableName: string;
   dataAction?: "append" | "replace";
   columnTypes?: Record<string, string>;
-  columnIndexes?: Record<string, { index: boolean; type: string; name: string }>;
+  columnIndexes?: Record<
+    string,
+    { unique: boolean; index: boolean; type: string; name: string }
+  >;
   delimiter?: string;
+  primaryKey?: string;
 }
