@@ -5,8 +5,9 @@ A powerful Visual Studio Code extension for seamless data import/export operatio
 > **Contest Submission**: This project was developed as a submission for the InterSystems "Bringing Ideas to Reality" Contest of December 2025. The extension provides an implementation for the following idea: [Load Data on VSCode](https://ideas.intersystems.com/ideas/DPI-I-667)
 
 **Related Articles**: I published on InterSystems Developer Community two articles about this project.
-  - [Introducing IRIS IO Utility: A VS Code Extension for Data Import/Export with InterSystems IRIS](https://community.intersystems.com/post/introducing-iris-io-utility-vs-code-extension-data-importexport-intersystems-iris)
-  - [IRIS IO Utility: A Complete Guide to Smart Importing in VS Code](https://community.intersystems.com/post/iris-io-utility-complete-guide-smart-importing-vs-code)
+
+- [Introducing IRIS IO Utility: A VS Code Extension for Data Import/Export with InterSystems IRIS](https://community.intersystems.com/post/introducing-iris-io-utility-vs-code-extension-data-importexport-intersystems-iris)
+- [IRIS IO Utility: A Complete Guide to Smart Importing in VS Code](https://community.intersystems.com/post/iris-io-utility-complete-guide-smart-importing-vs-code)
 
 ## 📋 Table of Contents
 

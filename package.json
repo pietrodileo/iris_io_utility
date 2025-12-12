@@ -3,7 +3,7 @@
   "name": "iris-io-utility",
   "displayName": "IRIS IO Utility",
   "description": "This is an utility extension to connect and interact with the tables of an InterSystems IRIS database",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "icon": "dist/resources/icon.png",
   "repository": {
     "type": "git",

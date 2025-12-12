@@ -619,8 +619,8 @@ class IrisConnector extends inference_1.IrisInference {
             // Log + Insert
             // -----------------------------
             this.log(`[IrisConnector] Mapped ${rows.length} rows`);
-            // batch is 30% of total
-            const batchSize = Math.floor(rows.length * 0.3);
+            // batch is 40% of total
+            const batchSize = Math.floor(rows.length * 0.4);
             this.log(`[IrisConnector] Batch size: ${batchSize} rows`);
             let inserted = 0;
             for (let i = 0; i < rows.length; i += batchSize) {

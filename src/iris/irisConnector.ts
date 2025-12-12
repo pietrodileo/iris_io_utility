@@ -532,7 +532,9 @@ export class IrisConnector extends IrisInference {
       await this.execute(sql, Object.values(values));
       this.log(`[IrisConnector] Inserted row into ${fullName}`);
     } catch (error: any) {
-      console.error(`[IrisConnector] Failed to insert into ${fullName}: ${error.message}`);
+      console.error(
+        `[IrisConnector] Failed to insert into ${fullName}: ${error.message}`
+      );
       throw error;
     }
   }
@@ -544,7 +546,9 @@ export class IrisConnector extends IrisInference {
   ): Promise<number> {
     const fullTable = this.validateTableName(tableName, schema);
     try {
-      this.log(`[IrisConnector] Inserting ${rows.length} row(s) into ${fullTable}`);
+      this.log(
+        `[IrisConnector] Inserting ${rows.length} row(s) into ${fullTable}`
+      );
       if (rows.length === 0) {
         throw new Error("No rows to insert");
       }
@@ -564,7 +568,9 @@ export class IrisConnector extends IrisInference {
       this.log(`[IrisConnector] Inserted ${count} row(s) into ${fullTable}`);
       return count;
     } catch (error: any) {
-      console.error(`[IrisConnector] Failed to insert into ${fullTable}: ${error.message}`);
+      console.error(
+        `[IrisConnector] Failed to insert into ${fullTable}: ${error.message}`
+      );
       throw error;
     }
   }
@@ -583,7 +589,7 @@ export class IrisConnector extends IrisInference {
         ([col, type]) => `${col} ${type}`
       );
       // Add primary key constraint if specified
-      if (primaryKey) { 
+      if (primaryKey) {
         constraints.push(`PRIMARY KEY (${primaryKey})`);
       }
 
@@ -593,7 +599,9 @@ export class IrisConnector extends IrisInference {
       await this.execute(sql);
       this.log(`[IrisConnector] Table ${fullTableName} created successfully`);
     } catch (error: any) {
-      console.error(`[IrisConnector] Error creating table ${fullTableName}: ${error.message}`);
+      console.error(
+        `[IrisConnector] Error creating table ${fullTableName}: ${error.message}`
+      );
       throw error;
     }
   }
@@ -610,7 +618,9 @@ export class IrisConnector extends IrisInference {
       await this.execute(sql);
       this.log(`[IrisConnector] Table ${fullName} dropped successfully`);
     } catch (error: any) {
-      console.error(`[IrisConnector] Error dropping table ${fullName}: ${error.message}`);
+      console.error(
+        `[IrisConnector] Error dropping table ${fullName}: ${error.message}`
+      );
       throw error;
     }
   }
@@ -639,9 +649,13 @@ export class IrisConnector extends IrisInference {
 
     try {
       await this.execute(sql);
-      this.log(`[IrisConnector] Index ${indexName} created on ${fullName}.${columnName}`);
+      this.log(
+        `[IrisConnector] Index ${indexName} created on ${fullName}.${columnName}`
+      );
     } catch (err: any) {
-      this.log(`[IrisConnector] Failed to create index ${indexName}: ${err.message}`);
+      this.log(
+        `[IrisConnector] Failed to create index ${indexName}: ${err.message}`
+      );
       throw err;
     }
   }
@@ -768,6 +782,8 @@ export class IrisConnector extends IrisInference {
         sampleValue: "",
       }));
 
+      // this.log(`[IrisConnector] columns ${JSON.stringify(columns)}`);
+
       // 3. Import data
       await this.importDataToTable(
         filePath,
@@ -785,9 +801,9 @@ export class IrisConnector extends IrisInference {
     }
   }
 
-  /**
-   * Import data from file to table (internal method)
-   */
+  /*
+   * Import data into an existing table
+  */
   private async importDataToTable(
     filePath: string,
     tableName: string,
@@ -797,37 +813,28 @@ export class IrisConnector extends IrisInference {
     delimiter?: string
   ): Promise<void> {
     try {
-      let rows: Record<string, any>[] = [];
       this.log(
         `[IrisConnector] Importing data from ${filePath} with format ${fileFormat}`
       );
 
-      // -----------------------------
+      let rawRows: Record<string, any>[] = [];
+
+      // ----------------------------------------
       // JSON
-      // -----------------------------
+      // ----------------------------------------
       if (fileFormat === "json") {
         const content = fs.readFileSync(filePath, "utf8");
         const json = JSON.parse(content);
-        rows = Array.isArray(json) ? json : [json];
+        rawRows = Array.isArray(json) ? json : [json];
 
-        rows = rows.map((row) => {
-          const mapped: Record<string, any> = {};
-          for (const col of columns) {
-            mapped[col.name] = row[col.originalName] ?? null;
-          }
-          return mapped;
-        });
+        this.log(`[IrisConnector] Loaded ${rawRows.length} JSON rows`);
       }
 
-      // -----------------------------
-      // CSV and TXT
-      // -----------------------------
+      // ----------------------------------------
+      // CSV / TXT
+      // ----------------------------------------
       else if (fileFormat === "csv" || fileFormat === "txt") {
-        let file_delimiter = ",";
-        if (fileFormat === "txt") {
-          file_delimiter = delimiter || ",";
-        }
-
+        const file_delimiter = fileFormat === "txt" ? delimiter || "," : ",";
         const content = fs.readFileSync(filePath, "utf8");
 
         const parsed = Papa.parse(content, {
@@ -843,53 +850,53 @@ export class IrisConnector extends IrisInference {
           );
         }
 
-        rows = parsed.data.map((row: any) => {
-          const mapped: Record<string, any> = {};
-          columns.forEach((col) => {
-            mapped[col.name] = row[col.originalName] ?? null;
-          });
-          return mapped;
-        });
+        rawRows = parsed.data as any[];
+
+        this.log(
+          `[IrisConnector] Loaded ${
+            rawRows.length
+          } ${fileFormat.toUpperCase()} rows`
+        );
       }
 
-      // -----------------------------
-      // Excel (xlsx/xls)
-      // -----------------------------
+      // ----------------------------------------
+      // XLSX
+      // ----------------------------------------
       else if (fileFormat === "xlsx" || fileFormat === "xls") {
         const workbook = XLSX.readFile(filePath);
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json(sheet);
 
-        rows = data.map((row: any) => {
-          const mapped: Record<string, any> = {};
-          columns.forEach((col) => {
-            mapped[col.name] = row[col.originalName] ?? null;
-          });
-          return mapped;
-        });
+        rawRows = XLSX.utils.sheet_to_json(sheet);
+
+        this.log(`[IrisConnector] Loaded ${rawRows.length} Excel rows`);
+      } else {
+        throw new Error(`Unsupported file format: ${fileFormat}`);
       }
 
-      // -----------------------------
-      // Log + Insert
-      // -----------------------------
-      this.log(`[IrisConnector] Mapped ${rows.length} rows`);
+      // ----------------------------------------
+      // MAP → NORMALIZE → VALIDATE
+      // ----------------------------------------
+      const { mappedRows } = this.mapRowsToColumns(rawRows, columns);
 
-      // batch is 30% of total
-      const batchSize = Math.floor(rows.length * 0.3);
-      this.log(`[IrisConnector] Batch size: ${batchSize} rows`);
+      this.log(`[IrisConnector] Mapped ${mappedRows.length} rows`);
+
+      // ----------------------------------------
+      // INSERT IN BATCHES
+      //
+      // Batch size is 30% of total rows
+      // ----------------------------------------
+      const batchSize = Math.max(1, Math.floor(mappedRows.length * 0.3));
+      this.log(`[IrisConnector] Batch size: ${batchSize}`);
+
       let inserted = 0;
 
-      for (let i = 0; i < rows.length; i += batchSize) {
-        const batch = rows.slice(i, i + batchSize);
+      for (let i = 0; i < mappedRows.length; i += batchSize) {
+        const batch = mappedRows.slice(i, i + batchSize);
         const count = await this.insertMany(tableName, batch, schema);
-
         inserted += count;
-        this.log(
-          `[IrisConnector] Batch ${i / batchSize + 1} Inserted ${inserted}/${
-            rows.length
-          } rows`
-        );
+
+        this.log(`[IrisConnector] Batch ${i / batchSize + 1}: Inserted ${inserted}/${mappedRows.length}`);
       }
 
       this.log(`[IrisConnector] Total rows inserted: ${inserted}`);
@@ -897,5 +904,76 @@ export class IrisConnector extends IrisInference {
       this.log(`[IrisConnector] Import failed: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Normalize row keys (for JSON, CSV, Excel)
+   * - converts dots to underscores
+   * - trims
+   * - sanitizes non-SQL characters
+   */
+  private normalizeRow(row: Record<string, any>): Record<string, any> {
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(row)) {
+      const cleanedKey = this.sanitizeColumnName(key);
+      result[cleanedKey] = value;
+    }
+    return result;
+  }
+
+  /**
+   * Map rows to the expected schema, detect corrections, unmapped columns.
+   */
+  private mapRowsToColumns(
+    rawRows: Record<string, any>[],
+    columns: ColumnAnalysis[]
+  ): { mappedRows: Record<string, any>[] } {
+    const corrected = new Set<string>();
+    const unmapped = new Set<string>();
+
+    const mappedRows = rawRows.map((raw, rowIndex) => {
+      const row = this.normalizeRow(raw);
+      const mapped: Record<string, any> = {};
+      
+      for (const col of columns) {
+        const keyOriginal = col.originalName; // sepal_length
+        const keySanitized = this.sanitizeColumnName(col.originalName);
+
+        let value = null;
+
+        this.log(`[IrisConnector] Mapping ${keyOriginal} to ${keySanitized}`);
+        if (row.hasOwnProperty(keyOriginal)) {
+          value = row[keyOriginal];
+          // this.log(`[IrisConnector] Found ${keyOriginal}`);
+        } else if (row.hasOwnProperty(keySanitized)) {
+          value = row[keySanitized];
+          corrected.add(`${keySanitized} → ${keyOriginal}`);
+          // this.log(`[IrisConnector] Found ${keySanitized}`);
+        } else {
+          unmapped.add(col.originalName);
+          // this.log(`[IrisConnector] Not found`);
+          throw new Error(
+            `[IrisConnector] Unmapped columns at row ${rowIndex}:\n` +
+              [...unmapped].map((c) => `  - ${c}`).join("\n") + ".\n" +
+              `Expected: ${columns.map((c) => c.originalName).join(", ")}. \n` +
+              `Found in data: ${Object.keys(rawRows[0]).join(", ")}`
+          );
+        }
+
+        mapped[col.name] = value;
+      }
+
+      return mapped;
+    });
+
+    // Log corrections
+    if (corrected.size > 0) {
+      this.log(
+        `[IrisConnector] Column corrections applied by sanitization:\n` +
+          [...corrected].map((c) => ` (sanitized) - ${c} (original)`).join("\n")
+      );
+    }
+
+    return { mappedRows };
   }
 }

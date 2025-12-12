@@ -4,3 +4,4 @@ node_modules
 storage/
 .vscode/
 .vscode-test.mjs
+**/*.vsix

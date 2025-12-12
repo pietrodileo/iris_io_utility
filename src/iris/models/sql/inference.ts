@@ -165,7 +165,7 @@ export abstract class IrisInference {
   /**
    * Sanitize column name for SQL compatibility
    */
-  private sanitizeColumnName(name: string): string {
+  protected sanitizeColumnName(name: string): string {
     return name
       .trim()
       .replace(/[^A-Za-z0-9_]/g, "_")
