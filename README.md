@@ -2,12 +2,11 @@
 
 A powerful Visual Studio Code extension for seamless data import/export operations with InterSystems IRIS databases. This extension provides an intuitive interface to connect, manage, and transfer data between various file formats and IRIS namespaces.
 
-> **Contest Submission**: This project was developed as a submission for the InterSystems "Bringing Ideas to Reality" Contest of December 2025. The extension provides an implementation for the following idea: <https://ideas.intersystems.com/ideas/DPI-I-667>
+> **Contest Submission**: This project was developed as a submission for the InterSystems "Bringing Ideas to Reality" Contest of December 2025. The extension provides an implementation for the following idea: [Load Data on VSCode](https://ideas.intersystems.com/ideas/DPI-I-667)
 
-> **Related Articles**: I published on InterSystems Developer Community two articles about this project.
-
-- <https://community.intersystems.com/post/introducing-iris-io-utility-vs-code-extension-data-importexport-intersystems-iris>
-- <https://community.intersystems.com/post/iris-io-utility-complete-guide-smart-importing-vs-code>
+**Related Articles**: I published on InterSystems Developer Community two articles about this project.
+  - [Introducing IRIS IO Utility: A VS Code Extension for Data Import/Export with InterSystems IRIS](https://community.intersystems.com/post/introducing-iris-io-utility-vs-code-extension-data-importexport-intersystems-iris)
+  - [IRIS IO Utility: A Complete Guide to Smart Importing in VS Code](https://community.intersystems.com/post/iris-io-utility-complete-guide-smart-importing-vs-code)
 
 ## 📋 Table of Contents
 
@@ -24,7 +23,7 @@ A powerful Visual Studio Code extension for seamless data import/export operatio
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
-## ✨ Features
+## Features
 
 - **Smart Data Import and Export**
   - Use ODBC connection to connect (requires InterSystems IRIS drivers)
@@ -47,14 +46,14 @@ A powerful Visual Studio Code extension for seamless data import/export operatio
   - JSON
   - XLSX (Microsoft Excel)
 
-## 📦 Prerequisites
+## Prerequisites
 
 - **Visual Studio Code** 1.80.0 or higher
 - **Node.js** 14.0 or higher
 - **InterSystems IRIS** instance (local, remote, or containerized)
 - **ODBC Drivers** (for ODBC connections)
 
-## 🚀 Installation
+## Installation
 
 ### From VSIX File
 
@@ -64,7 +63,7 @@ A powerful Visual Studio Code extension for seamless data import/export operatio
 4. Click the "..." menu → Install from VSIX
 5. Select the downloaded file
 
-## 🎯 Getting Started
+## Getting Started
 
 ### Option 1: Using the Containerized IRIS Instance
 
@@ -137,7 +136,7 @@ The **ODBC** connection uses the InterSystems IRIS ODBC driver for enhanced perf
 7. Select your preferred driver from the dropdown
 8. Click **"Save Driver Selection"**
 
-## 📖 Using the Extension
+## Using the Extension
 
 ### Managing Connections
 
@@ -299,7 +298,7 @@ The Export feature allows you to extract data from IRIS tables to various file f
 - Custom folder selection available
 - File operations logged to Output panel
 
-## ⚙️ Configuration
+## Configuration
 
 ### Extension Settings
 
@@ -322,16 +321,17 @@ Connection data is stored per workspace in VS Code's workspace state:
 
 **Note**: Connections are workspace-specific and won't appear in other workspaces.
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Output Window
 
 The extension is provided with a VSCode Output window called "IRIS IO Utility" where you can see logs.
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
 **Happy Data Managing! 🚀**
+
